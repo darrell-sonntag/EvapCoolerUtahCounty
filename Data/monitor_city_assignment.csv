@@ -1,0 +1,33 @@
+House ID,City,Zipcode,Distance from Lindon Monitor (mi),Distance from Spanish Fork Monitor (mi),Monitor closest
+2,Elk Ridge,84651,25,9.4,Spanish Fork
+3,Payson,84651,27,10,Spanish Fork
+4,Santaquin,84655,30,15,Spanish Fork
+5,Provo,84606,9,11,Lindon
+6,Orem,84058,6,13,Lindon
+7,Provo,84601,8,12,Lindon
+8,Provo,84604,8,11,Lindon
+9,Provo,84604,8,11,Lindon
+10,Spanish Fork,84660,21,6,Spanish Fork
+11,Payson,84651,24,8,Spanish Fork
+12,Pleasant Grove,84062,3,20,Lindon
+13,Lehi,84043,12,28,Lindon
+14,Provo,84606,13,9,Spanish Fork
+15,Provo,84604,9,11,Lindon
+16,Springville,84663,15,6,Spanish Fork
+17,Springville,84663,17,5,Spanish Fork
+18,Springville,84663,19,7,Spanish Fork
+19,Mapleton,84664,18,4,Spanish Fork
+20,Provo,84606,9,10,Lindon
+21,Springville,84663,17,5,Spanish Fork
+22,Orem,84057,3,18,Lindon
+23,Orem,84057,3.2,16.5,Lindon
+24,Provo,84604,8,11.8,Lindon
+25,Pleasant Grove,84604,4.5,21.8,Lindon
+26,Provo,84606,8.9,10.2,Lindon
+27,Provo,84601,7.4,11.3,Lindon
+28,Provo,84604,8,10.9,Lindon
+29,Provo,84604,9.9,11.2,Lindon
+30,Provo,84606,8.3,10.3,Lindon
+31,Springville,84663,14.2,6,Spanish Fork
+32,Provo,84604,8.7,9.8,Lindon
+33,Provo,84604,8.4,10.2,Lindon
