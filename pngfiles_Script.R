@@ -541,13 +541,15 @@ dev.off()
 ### sustainability Figure 7
 ann_text_Figure_7 <- data.frame(lab = c("a","b","c","d"), 
                                 season = c("Summer","Summer","Winter","Winter"),
-                                ac.type = c("Central","Evap","Central","Evap"))
+                                ac.type = c("Central","Evap","Central","Evap"),
+                                vjust = c(1.35,10,1.35,1.35))
 
 # Create the labels with subscripted text
-labels <- c(expression(paste("C"['in'], " = 3.02 + 0.239 * C"['out'],", ")),
-            expression(paste("C"['in'], " = -1.32 + 0.964 * C"['out'],", ")),
-            expression(paste("C"['in'], " = 3.21 + 0.0575 * C"['out'],", ")),
-            expression(paste("C"['in'], " = 2.41 + 0.164 * C"['out'],", ")))
+labels <- c(expression(C['in']== 3.02 + 0.239 %*% C['out']),
+            expression(C['in']== -1.32 + 0.964 %*% C['out']),
+            expression(C['in']== 3.21 + 0.0575 %*% C['out']),
+            expression(C['in']== 2.41 + 0.164 %*% C['out']))
+
 
 # Add the labels to the plot
 for (i in 1:length(labels)) {
@@ -563,8 +565,10 @@ ggplot(data=sidepak.stats,aes(x=SidePak.ug.m3.avg_Out, y=SidePak.ug.m3.avg_In))+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(rr.label), sep = "*\", \"*")),parse=TRUE,
                label.y = 1,label.x=.95,size=3)+
+  #geom_text(data=ann_text_Figure_7, label = ann_text_Figure_7$lab,color='black',
+  #          mapping=aes(x=Inf,y=Inf, label=lab),hjust=1.5,vjust=1.35,size=3)+
   geom_text(data=ann_text_Figure_7, label = ann_text_Figure_7$lab,color='black',
-            mapping=aes(x=Inf,y=Inf, label=lab),hjust=1.5,vjust=1.35,size=3)+
+            mapping=aes(x=Inf,y=Inf, label=lab),hjust=1.6,vjust=ann_text_Figure_7$vjust,size=3)+
   facet_grid(season~ac.type) +
   theme(legend.position = 'bottom')+
   theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
