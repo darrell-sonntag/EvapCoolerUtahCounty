@@ -1,3 +1,5 @@
+setwd("C:\\Users\\cello\\OneDrive\\문서\\Github\\EvapCoolerUtahCounty")
+
 sidepakfiles.all.graphs <- sidepakfiles.all.same.time %>%
   mutate(house.number.visit = ifelse(house.number.visit =='H15 V1','H09 V3',house.number.visit)) %>% ### Change H15 V2 to H09 V4 
   mutate(house.number.visit = ifelse(house.number.visit =='H15 V2','H09 V4',house.number.visit)) %>% ### Change H15 V2 to H09 V4
@@ -24,7 +26,7 @@ sidepak.stats.long.reg.no.fire <- sidepak.stats.long.reg %>%
   filter(day.type =='Normal')
 
 ### Supplement Figure S-2
-png(".//Graphics//Supplement.Figure.S-2.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-2.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepakfiles.all.graphs, House.number.int < 10)) + 
   geom_line(aes(x = duration.hours, y = Aerosol, color=Location))+
   theme_bw()+
@@ -40,7 +42,7 @@ ggplot(data = filter(sidepakfiles.all.graphs, House.number.int < 10)) +
 dev.off()
 
 ### Supplement Figure S-3
-png(".//Graphics//Supplement.Figure.S-3.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-3.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepakfiles.all.graphs,House.number.int > 9 & House.number.int < 20)) + 
   geom_line(aes(x = duration.hours, y = Aerosol, color=Location))+
   theme_bw()+
@@ -56,7 +58,7 @@ ggplot(data = filter(sidepakfiles.all.graphs,House.number.int > 9 & House.number
 dev.off()
 
 ### Supplement Figure S-4
-png(".//Graphics//Supplement.Figure.S-4.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-4.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepakfiles.all.graphs, House.number.int > 19)) + 
   geom_line(aes(x = duration.hours, y = Aerosol, color=Location))+
   theme_bw()+
@@ -73,7 +75,7 @@ dev.off()
 
 ### Supplement Figure S-5
 #plot outdoor UDAQ pm2.5 vs outdoor SidePak pm2.5 (all  homes)
-png(".//Graphics//Supplement.Figure.S-5.png", width=3.6, height=3, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-5.png", width=3.6, height=3, units="in", res=300)
 ggplot(data=sidepak.epa.out,aes(x=PM2.5.UDAQ.ug.m3, y=SidePak.ug.m3.avg))+
   geom_point(aes(color=season),size = .5)+
   labs(x = expression(paste("UDAQ PM"[2.5]," concentration, ","ug/m"^3)),
@@ -93,7 +95,7 @@ dev.off()
 
 ### Supplement Figure S-6
 #plot outdoor UDAQ pm2.5 vs outdoor SidePak pm2.5 (during summer)
-png(".//Graphics//Supplement.Figure.S-6.png", width=3.6, height=3, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-6.png", width=3.6, height=3, units="in", res=300)
 ggplot(data=sidepak.epa.summer,aes(x=PM2.5.UDAQ.ug.m3, y=SidePak.ug.m3.avg))+
   geom_point(aes(color=Monitor.closest),size = 1)+
   geom_abline(aes(intercept = 0, slope = 1))+
@@ -115,7 +117,7 @@ dev.off()
 
 ### Supplement Figure S-7
 #plot outdoor UDAQ pm2.5 vs outdoor SidePak pm2.5 (winter)
-png(".//Graphics//Supplement.Figure.S-7.png", width=3.6, height=3, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-7.png", width=3.6, height=3, units="in", res=300)
 ggplot(data=sidepak.epa.winter,aes(x=PM2.5.UDAQ.ug.m3, y=SidePak.ug.m3.avg))+
   geom_point(aes(color=Monitor.closest))+
   geom_abline(aes(intercept = 0, slope = 1))+
@@ -135,7 +137,7 @@ ggplot(data=sidepak.epa.winter,aes(x=PM2.5.UDAQ.ug.m3, y=SidePak.ug.m3.avg))+
 dev.off()
 
 ## Supplement Figure S-8
-png(".//Graphics//Supplement.Figure.S-8.png", width=6, height=7.5, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-8.png", width=6, height=7.5, units="in", res=300)
 ggplot(data = sidepak.stats.graph.repeat ,  aes(y = house.number.visit, x = `I/O`,fill=measurement))+  
   geom_col(aes(),width=0.7)+
   facet_grid(season+ac.type ~.,scales='free_y' ,space='free') + 
@@ -153,7 +155,7 @@ ggplot(data = sidepak.stats.graph.repeat ,  aes(y = house.number.visit, x = `I/O
 dev.off()
 
 ### Supplement Figure S-9
-png(".//Graphics//Supplement.Figure.S-9.png", width=4, height=6, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-9.png", width=4, height=6, units="in", res=300)
 ggplot(sidepak.stats.long.con.no.fire,aes(x=ac.type,y=value,color=ac.type)) +
   geom_boxplot()+
   geom_signif(comparisons=list(c('Central','Evap')),
@@ -170,7 +172,7 @@ ggplot(sidepak.stats.long.con.no.fire,aes(x=ac.type,y=value,color=ac.type)) +
 dev.off()
 
 ### Supplement Figure S-10
-png(".//Graphics//Supplement.Figure.S-10.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-10.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepak.correlation.qa, House.number.int < 10),aes(x = Out, y = In)) + 
   geom_point(color='grey', size = .5)+
   theme_bw()+
@@ -190,7 +192,7 @@ dev.off()
 
 
 ### Supplement Figure S-11
-png(".//Graphics//Supplement.Figure.S-11.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-11.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepak.correlation.qa, House.number.int > 9 & House.number.int < 20),aes(x = Out, y = In)) + 
   geom_point(color='grey', size = .5)+
   theme_bw()+
@@ -209,7 +211,7 @@ ggplot(data = filter(sidepak.correlation.qa, House.number.int > 9 & House.number
 dev.off()
 
 ### Supplement Figure S-12
-png(".//Graphics//Supplement.Figure.S-12.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-12.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(sidepak.correlation.qa, House.number.int > 19),aes(x = Out, y = In)) + 
   geom_point(color='grey', size = .5)+
   theme_bw()+
@@ -228,7 +230,7 @@ ggplot(data = filter(sidepak.correlation.qa, House.number.int > 19),aes(x = Out,
 dev.off()
 
 ## Supplement Figure S-13
-png(".//Graphics//Supplement.Figure.S-13.png", width=4, height=6, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-13.png", width=4, height=6, units="in", res=300)
 ggplot(sidepak.stats.long.reg.no.fire,aes(x=ac.type,y=value,color=ac.type)) +
   geom_boxplot()+
   geom_signif(comparisons=list(c('Central','Evap')),
@@ -245,7 +247,7 @@ ggplot(sidepak.stats.long.reg.no.fire,aes(x=ac.type,y=value,color=ac.type)) +
 dev.off()
 
 ## Supplement Figure S-14
-png(".//Graphics//Supplement.Figure.S-14.png", width=4.5, height=4.5, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-14.png", width=4.5, height=4.5, units="in", res=300)
 ggplot(data=sidepak.stats,aes(x=PM2.5.UDAQ.ug.m3, y=Cs))+
   geom_point(aes(color=day.type))+
   geom_smooth(color = "black",method='loess',span=2) +
@@ -260,7 +262,7 @@ ggplot(data=sidepak.stats,aes(x=PM2.5.UDAQ.ug.m3, y=Cs))+
 dev.off()
 
 ## Supplement Figure S-15
-png(".//Graphics//Supplement.Figure.S-15.png", width=6, height=6, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-15.png", width=6, height=6, units="in", res=300)
 ggplot(data = sidepak.stats.graph.repeat,  aes(y = house.number.visit, x = Fin,fill=measurement))+  
   geom_col(aes(),width=0.7)+
   facet_grid(season+ac.type ~.,scales='free_y' ,space='free') +
@@ -284,7 +286,7 @@ own.colors.2 <- brewer.pal(n = 8, name = "Paired")[c(3:8)]
 own.colors.2
 
 ### Supplement Figure S-16
-png(".//Graphics//Supplement.Figure.S-16.png", width=6, height=7, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-16.png", width=6, height=7, units="in", res=300)
 ggplot(data = sidepak.stats,  aes(y = house.number.visit.date, x = Fin,fill=day.type))+  
   geom_col(aes(),width=0.7)+
   geom_errorbar(aes(xmin =Fin.lower, xmax = Fin.upper),width=0.5) +
@@ -303,7 +305,7 @@ dev.off()
 ### Is there a relationship with temperature (people are using AC more?)
 ## no discernible trend with temperature
 ## Supplement Figure S-17
-png(".//Graphics//Supplement.Figure.S-17.png", width=4.5, height=4.5, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-17.png", width=4.5, height=4.5, units="in", res=300)
 ggplot(data=sidepak.stats,aes(x=average.temperature.Celsius_Out, y=Fin))+
   geom_point(aes(color=day.type))+
   geom_smooth(color = "black",method='loess',span=2) +
@@ -320,7 +322,7 @@ dev.off()
 
 ### relationship between Fin and outdoor concentration 
 ## Supplement Figure S-18
-png(".//Graphics//Supplement.Figure.S-18.png", width=4.5, height=4.5, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-18.png", width=4.5, height=4.5, units="in", res=300)
 ggplot(data=sidepak.stats,aes(x=PM2.5.UDAQ.ug.m3, y=Fin))+
   geom_point(aes(color=day.type))+
   geom_smooth(color = "black",method='loess',span=2) +
@@ -335,7 +337,7 @@ ggplot(data=sidepak.stats,aes(x=PM2.5.UDAQ.ug.m3, y=Fin))+
 dev.off()
 
 ### Supplement Figure S-19
-png(".//Graphics//Supplement.Figure.S-19.png", width=6, height=3.5, units="in", res=300)
+png(".//Graphics//SidePak//Supplement.Figure.S-19.png", width=6, height=3.5, units="in", res=300)
 ggplot(data=sidepak.stats.graph.no.fire,aes(x=SidePak.ug.m3.avg_Out, y=SidePak.ug.m3.avg_In))+
   geom_point(aes(color=day.type))+
   
@@ -363,7 +365,7 @@ sidepak.complete$house.number.visit.date <- factor(sidepak.complete$house.number
 sidepak.complete$Location <- factor(sidepak.complete$Location,levels=c("Out","In"),ordered=T)
 
 ### sustainability Figure 2
-png(".//Graphics//Sustainability.Figure.2.png", width=10, height=12, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.2.png", width=10, height=12, units="in", res=300)
 ggplot(data = sidepak.complete,  aes(y = house.number.visit.date, x = SidePak.ug.m3.avg,fill=Location))+  
   geom_col(aes(),position=position_dodge2(preserve='single'),width=0.7)+
   geom_errorbar(position=position_dodge2(preserve='single'),width =0.7,aes(xmin = Sidepak.tenth, xmax = Sidepak.ninetieth))+ 
@@ -388,7 +390,7 @@ ann_text_3$statistic <- factor(ann_text_3$statistic, levels = levels(sidepak.sta
 pvalue_text_3$statistic <- factor(pvalue_text_3$statistic, levels = levels(sidepak.stats.long.con$statistic),ordered = TRUE)
 
 ### sustainability Figure 3
-png(".//Graphics//Sustainability.Figure.3.png", width=6, height=6, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.3.png", width=6, height=6, units="in", res=300)
 ggplot(sidepak.stats.long.con,aes(x=ac.type,y=value,color=ac.type)) +
   geom_boxplot()+
   geom_signif(comparisons=list(c('Central','Evap')),
@@ -417,7 +419,7 @@ sidepakfiles.all$Location <- factor(sidepakfiles.all$Location,levels=c("Out","In
 sidepakfiles.i <- filter(sidepakfiles.all.same.time,House.Number =='H23' & Visit == 'V1') 
 
 ### sustainability Figure 4-1
-png(".//Graphics//Sustainability.Figure.4-1.png", width=6.5, height=3.5, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.4-1.png", width=6.5, height=3.5, units="in", res=300)
 ggplot(data = sidepakfiles.i) + 
   geom_line(aes(x = date.time, y = Aerosol, color=Location))+
   scale_color_brewer(palette = 'Set1')+
@@ -440,7 +442,7 @@ sidepak.correlation.i <- filter(sidepak.correlation,House.Number =='H23' & Visit
 
   
 ### sustainability Figure 5-1
-png(".//Graphics//Sustainability.Figure.5-1.png", width=3.5, height=3, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.5-1.png", width=3.5, height=3, units="in", res=300)
 ggplot(data = sidepak.correlation.i,aes(x = Out, y = In)) + 
   geom_point(color='grey',size = .5)+
   theme_bw()+
@@ -467,7 +469,7 @@ sidepakfiles.all$Location <- factor(sidepakfiles.all$Location,levels=c("Out","In
 sidepakfiles.i <- filter(sidepakfiles.all.same.time,House.Number =='H16' & Visit == 'V2') 
 
 ### sustainability Figure 4-2
-png(".//Graphics//Sustainability.Figure.4-2.png", width=6.5, height=3.5, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.4-2.png", width=6.5, height=3.5, units="in", res=300)
 ggplot(data = sidepakfiles.i) + 
   geom_line(aes(x = date.time, y = Aerosol, color=Location))+
   scale_color_brewer(palette = 'Set1')+
@@ -488,7 +490,7 @@ dev.off()
 sidepak.correlation.i <- filter(sidepak.correlation,House.Number =='H16' & Visit == 'V2') 
 
 ### sustainability Figure 5-2
-png(".//Graphics//Sustainability.Figure.5-2.png", width=3.5, height=3, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.5-2.png", width=3.5, height=3, units="in", res=300)
 ggplot(data = sidepak.correlation.i,aes(x = Out, y = In)) + 
   geom_point(color='grey', size = .5)+
   theme_bw()+
@@ -514,7 +516,7 @@ ann_text <- data.frame(lab = "X = Mean", statistic='Cs',season='Summer')
 
 pvalue_text <- data.frame(lab = "p-value =",statistic='Cs',season='Summer')
 
-png(".//Graphics//Sustainability.Figure.6.png", width=6, height=6, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.6.png", width=6, height=6, units="in", res=300)
 ggplot(sidepak.stats.long.reg,aes(x=ac.type,y=value,color=ac.type)) +
   geom_boxplot()+
   geom_signif(comparisons=list(c('Central','Evap')),
@@ -556,7 +558,7 @@ for (i in 1:length(labels)) {
   ann_text_Figure_7$lab[i] <- labels[i]
 }
 
-png(".//Graphics//Sustainability.Figure.7.png", width=6, height=4, units="in", res=300)
+png(".//Graphics//SidePak//Sustainability.Figure.7.png", width=6, height=4, units="in", res=300)
 ggplot(data=sidepak.stats,aes(x=SidePak.ug.m3.avg_Out, y=SidePak.ug.m3.avg_In))+
   geom_point(aes(color=day.type), size = 1.5)+
   labs(x = expression(paste("Outdoor SidePak PM"[2.5]," ug/m"^3,"(C"["out"],")")),
