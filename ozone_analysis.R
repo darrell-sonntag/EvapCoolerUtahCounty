@@ -7,13 +7,12 @@ library(readxl)
 library(RColorBrewer)
 library(GGally)
 
-#set the working directory (Currently unique to Han's computer)
-#setwd("C:\\Users\\cello\\Box\\Wildfire Indoor Air Quality Instrument Data\\Data")
-#setwd("C:\\Users\\Sonntag\\Box\\Wildfire Indoor Air Quality Instrument Data\\Data")
-setwd("C:\\Users\\cello\\OneDrive\\문서\\Github\\EvapCoolerUtahCounty")
+# make sure current directory is in the Github/EvapCoolerUtahCounty
+
+
 
 own.colors <- brewer.pal(n = 9, name = "Set1")[c(8:9)]
-display.brewer.all()
+#display.brewer.all()
 
 ###
 
@@ -31,16 +30,24 @@ ozone.summary <- summary %>%
   mutate(ozone.max = ifelse(O3.Below.detection==T,O3.LOD.ppm,O3.ppm)) %>%
   mutate(ozone.max = round(as.numeric(ozone.max),digits=4)) %>%
   mutate(O3.ppm = as.numeric(O3.ppm)) %>%
-  select("House.Number","Visit", "house.number.visit","house.number.visit.date" ,"Location","first.day","Ozone.UDAQ.ppb", "UDAQ.n_OZONE" , "Monitor.closest",  "O3.mg.m3","O3.ppm", "O3.LOD.ppm", "O3.Below.detection" ,        
+  select("House.Number","Visit", "house.number.visit","house.number.visit.date" ,"Location","first.day",
+         "Ozone.UDAQ.ppb", "UDAQ.n_OZONE" , "Monitor.closest", "day.type" ,"O3.mg.m3","O3.ppm", "O3.LOD.ppm", "O3.Below.detection" ,        
          "ozone.max", "average.RH", "min.RH" , "max.RH" ,"average.temperature.Celsius",
          "min.temperature" ,  "max.temperature" , "time.hours" ,  "Type of Air Conditioner","ac.type" )
 
 
+
+ozone.summary.out <- ozone.summary  %>%
+  filter(Location == "Out")    %>%
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
+
+summary(lm(Ozone.UDAQ.ppb~O3.ppb,ozone.summary.out, na.action = na.omit))
+
 ## Bring in the plot of the study ozone vs. the UDAQ ozone measurements
 #plot Ozone vs UDQA ozone (all homes)
 png(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=3.6, height=3, units="in", res=300)
-ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
-  geom_point(aes(color=factor(House.Number)))+
+ggplot(data=ozone.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
+  geom_point(aes(color=Monitor.closest))+
   geom_abline(aes(intercept = 0, slope = 1))+
   labs(x='Study Ozone Concentration ppb', y='UDAQ Average Ozone ppb')+
   stat_poly_line() +
@@ -53,7 +60,29 @@ ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   #      plot.margin = margin(5,5,5,5))+          # Adjust this to decrease space below x-axis title
   theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
         axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.position = 'none', strip.text = element_text(size=9))
+        legend.position = 'bottom', strip.text = element_text(size=9))
+dev.off()
+
+
+## Second graph with x,y = 0,0 in the plot
+png(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=3.6, height=3, units="in", res=300)
+ggplot(data=ozone.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
+  geom_point(aes(color=Monitor.closest))+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(x='Study Ozone Concentration ppb', y='UDAQ Average Ozone ppb')+
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
+  expand_limits (x=10,y=10)+
+  theme_bw()+
+  scale_color_brewer(palette='Set1')+
+  
+  # theme(legend.position = 'right', 
+  #      legend.margin=margin(-10,0,0,0),         # Adjust this to decrease space above the legend
+  #      plot.margin = margin(5,5,5,5))+          # Adjust this to decrease space below x-axis title
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.position = 'bottom', strip.text = element_text(size=9))
 dev.off()
 
 #plot Ozone vs UDQA ozone (all homes)
@@ -139,7 +168,6 @@ ozone.wide <- ozone.summary %>%
   select(-O3.mg.m3,-time.hours,-O3.ppm,-O3.LOD.ppm) %>%
   pivot_wider(names_from = Location,values_from = c(ozone.max,O3.Below.detection,average.temperature.Celsius,
                                                     min.temperature,max.temperature,average.RH,min.RH,max.RH),names_sort = T) %>%
-  filter(!(house.number.visit %in% c('H02 V2','H03 V2')))  %>%
   mutate(`I/O` = ozone.max_In / ozone.max_Out) %>%
   mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal'))
   
@@ -162,7 +190,7 @@ ozone.wide <- ozone.wide %>%
 
 png(".//Graphics//Ozone//ozone.io.png", width=6.5, height=4, units="in", res=300)
 ggplot(data = ozone.wide,aes(x = House.Number, y = `I/O`,fill=House.Number)) + 
-  geom_jitter(size=2,alpha=0.9,width=0.15,pch=21,color='black')+
+  geom_jitter(size=2,alpha=0.9,width=0.22,pch=21,color='black')+
   theme_bw()+
   expand_limits(y=0,x=0)+
   labs(x='House', y= 'I/O')+
