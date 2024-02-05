@@ -1,0 +1,3 @@
+Position	Date	Time	Ch1_Value	Ch1_Unit	Ch2_Value	Ch2_unit
+1	9/1/2023	17:34:05	54.7	       %RH	23.7	  DEGREE C
+2	9/1/2023	17:34:11	55.9	       %RH	23.7	  DEGREE C

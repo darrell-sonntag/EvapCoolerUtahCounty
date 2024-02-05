@@ -9,7 +9,7 @@ library(dplyr)
 library(RColorBrewer)
 library(ggsignif)
 library(patchwork)
-library(ggpubr)
+#library(ggpubr)
 
  
 #### 
@@ -19,6 +19,8 @@ library(ggpubr)
 #### 
 #### 
 ### read in metadata and ac data
+
+# make sure current directory is in the Github/EvapCoolerUtahCounty
 
 path <- ".\\Data\\Research Data Master List.xlsx"
 metadata <- read_excel(path = path)
@@ -441,7 +443,7 @@ sidepak.epa.out <- sidepak.epa.comparison %>%
   filter(!is.na(SidePak.ug.m3.avg))
 
 #Ozone Data and Plots
-studyozone<- read_excel(".\\Data\\Ozone\\Ozone Data.xlsx")%>%
+studyozone<- read_excel(".\\Data\\Ozone\\Ozone Data_corrected.xlsx")%>%
   select("House.Number","Visit","Location","Conc (mg/m3)","ppm","LOD ppm") %>%
   mutate(O3.Below.detection = grepl("<", `Conc (mg/m3)`)) %>%
   rename(O3.ppm = ppm) %>%
@@ -453,12 +455,11 @@ study.summary <- sidepak.epa.comparison %>%
   left_join(studyozone, by = c('House.Number','Visit','Location')) 
 
 
-write.csv(study.summary,".//Processed Data//study.API.summary.csv",row.names = FALSE)
+write.csv(study.summary,".//Data//Processed Data//study.API.summary.csv",row.names = FALSE)
 
 study.summary.out <- study.summary  %>%
   filter(Location == "Out")    %>%
-  mutate(O3.ppb = 1000 * as.numeric(O3.ppm))  %>%
-  filter(House.Number != "H09")
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
 
 summary(lm(Ozone.UDAQ.ppb~O3.ppb,study.summary.out, na.action = na.omit))
 
@@ -589,7 +590,7 @@ TRH_summary_Table_season <- sidepak.stats %>%
     
   )
 
-write.csv(TRH_summary_Table_season, ".///Processed Data//TRH_summary_Table_season.csv",row.names = FALSE)
+write.csv(TRH_summary_Table_season, ".//data//Processed Data//TRH_summary_Table_season.csv",row.names = FALSE)
 
 ####
 
@@ -803,7 +804,7 @@ sidepak.stat.long.means <- sidepak.stats.long %>%
 
 
 own.colors <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
-display.brewer.all()
+# display.brewer.all()
 
 ## box plot with just concentrations
 
