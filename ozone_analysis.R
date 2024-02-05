@@ -157,6 +157,9 @@ ozone.wide <- ozone.wide %>%
   mutate(House.Number = factor(House.Number,levels=levels.house,ordered=T))
 
 
+ozone.wide$`Type of Air Conditioner` <- ifelse(ozone.wide$`Type of Air Conditioner` == "Central", "AC",
+                                               ifelse(ozone.wide$`Type of Air Conditioner` == "Evaporative", "EC",
+                                                      ozone.wide$`Type of Air Conditioner`))
 ###
 ## 
 
