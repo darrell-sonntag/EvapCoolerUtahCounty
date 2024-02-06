@@ -33,6 +33,9 @@ ozone.summary <- summary %>%
          "min.temperature" ,  "max.temperature" , "time.hours" ,  "Type of Air Conditioner","ac.type")
 
 
+write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
+
+
 ## Bring in the plot of the study ozone vs. the UDAQ ozone measurements
 #plot Ozone vs UDQA ozone (all homes)
 png(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=3.6, height=3, units="in", res=300)
@@ -322,7 +325,7 @@ ggplot(data=ozone.wide.summer,aes(x=average.RH_Out, y=`I/O`))+
         strip.text = element_text(size=10))
 dev.off()
 
-#plot Ozone vs UDQA ozone (all homes)
+#plot Ozone vs UDAQ ozone (all homes)
 ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   geom_point(aes(color=factor(House.Number)))+
   geom_abline(aes(intercept = 0, slope = 1))+
