@@ -55,8 +55,7 @@ dev.off()
 
 ## make a plot where you y and x axis goes to zero
 ## include the black y=x line
-## try chaning the y vs. x
-
+## try changing the y vs. x
 
 ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   geom_point(aes(color=factor(House.Number)))+
@@ -144,10 +143,10 @@ ozone.wide.summer <- ozone.wide %>%
 
 ozone.ave.house <- ozone.wide %>%
   group_by(House.Number,`Type of Air Conditioner` ) %>%
-  summarize(mean_house = mean(`I/O`))
+  summarize(ave_ozone_IO = mean(`I/O`))
 
 #levels.house <-ozone.ave.house[order(ozone.ave.house$ave_ozone_IO),'House.Number']
-levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$mean_house)]
+levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$ave_ozone_IO)]
 levels.house
 
 ozone.wide <- ozone.wide %>%
@@ -231,55 +230,26 @@ ggplot(data = filter(ozone.visit.wide,`Type of Air Conditioner` =='EC'),aes(x = 
         plot.margin= margin(t=10,r=5,b=0,l=0))
 #dev.off()
 
-## Look at potential correlation with respect to time
-
-ozone.wide <- ozone.wide %>%
-  mutate(year = year(first.day))
-
-ggplot(data = ozone.wide,aes(x = first.day, y = `I/O`,fill=`House.Number`)) + 
-  geom_jitter(size=2,alpha=0.9,width=0.2,pch=21,color='black')+
-  theme_bw()+
-  labs(x='House', y= 'I/O')+
-  facet_grid(`Type of Air Conditioner`~ year, scales='free') +
-  expand_limits(y=0)+ 
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(angle = 90,vjust =0.5, size=8))
-
-
-
-
-
-
 ###
-#Now calculate the average of the averages, and a 95% confidence intervals
-#
+# Calculate 95% condfidence intervals for both
+### 
 
-ozone.ave.type.2 <- ozone.ave.house %>%
-  group_by(`Type of Air Conditioner`) %>%
-  summarize(mean = mean(mean_house),
-            sd = sd(mean_house),
-            n = sum(!is.na(mean_house))) %>%
-  mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
-  mutate(bound = tcrit*sd/sqrt(n)) %>%
-  mutate(lower.95 = mean-bound) %>%
-  mutate(upper.95 = mean+bound ) 
+## create empty data frame to store correlation stats
 
-## plot 
+sidepak.t.test.summer <- data.frame(statistic = character(), 
+                                    season = character(),
+                                    p.value = numeric(),
+                                    lower.bound = numeric(),
+                                    upper.bound = numeric()
+)
 
-ggplot(data=ozone.ave.type.2,
-       aes(x=`Type of Air Conditioner`, y= mean, fill=`Type of Air Conditioner`))+
-  geom_col()+
-  geom_errorbar(aes(ymin=lower.95,ymax=upper.95,width=0.25))+
-  theme_bw()+
-  labs(y='Mean I/O Ozone ratio') +
-  scale_fill_brewer(palette = 'Paired')+
-  theme(legend.position = 'none')+
-  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
-        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
-        legend.title = element_blank(),legend.text = element_text(size = 10),
-        strip.text = element_text(size=10))
+sidepak.t.test.summer[1,1] <- "I/O"
+sidepak.t.test.summer[1,3] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$p.value
+sidepak.t.test.summer[1,4] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$conf.int[1]
+sidepak.t.test.summer[1,5] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$conf.int[2]
 
 
-## Figure 
+## Figure S-17
 png(".//Graphics//Ozone//O3.IO.vs.temp.png", width=4.5, height=4, units="in", res=300)
 ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=`I/O`))+
   geom_point(aes(color=day.type))+
