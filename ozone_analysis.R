@@ -132,15 +132,16 @@ ggplot(data = ozone.summary,  aes(y = house.number.visit, x = O3.ppm*1000,fill=L
 smoke.event <- interval(ymd('2022-09-08'),ymd('2022-09-12'))
 
 ozone.wide <- ozone.summary %>%
-  select(-O3.mg.m3,-time.hours,O3.ppm,-O3.LOD.ppm) %>%
+  select(-O3.mg.m3,-time.hours,-O3.ppm,-O3.LOD.ppm) %>%
   pivot_wider(names_from = Location,values_from = c(ozone.max,O3.Below.detection,average.temperature.Celsius,
                                                     min.temperature,max.temperature,average.RH,min.RH,max.RH),names_sort = T) %>%
   filter(!(house.number.visit %in% c('H02 V2','H03 V2')))  %>%
   mutate(`I/O` = ozone.max_In / ozone.max_Out) %>%
-  mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal'))%>%
-  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
+  mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal'))
 
-
+ozone.summary.out <- ozone.summary %>%
+  filter(Location == 'Out') %>%
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm))
 
 ## Calculate means
 
@@ -164,9 +165,8 @@ ozone.wide$`Type of Air Conditioner` <- ifelse(ozone.wide$`Type of Air Condition
 
 #plot Ozone vs Temp (Outdoor)
 png(".//Graphics//Ozone//Outdoor.Ozone.Temp.Comparison.png",width=3.6, height=3, units="in", res=300)
-ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=O3.ppb))+
+ggplot(data=ozone.summary.out,aes(x=average.temperature.Celsius, y=O3.ppb))+
   geom_point(aes(color=Monitor.closest))+
-  geom_abline(aes(intercept = 0, slope = 1))+
   labs(y='Study Outdoor Ozone, ppb', x='Outdoor Temperature, C')+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
@@ -180,15 +180,29 @@ dev.off()
 
 #plot Ozone vs RH (Outdoor)
 png(".//Graphics//Ozone//Outdoor.Ozone.RH.Comparison.png",width=3.6, height=3, units="in", res=300)
-ggplot(data=ozone.wide,aes(x=average.RH_Out, y=O3.ppb))+
+ggplot(data=ozone.summary.out,aes(x=average.RH, y=O3.ppb))+
   geom_point(aes(color=Monitor.closest))+
-  geom_abline(aes(intercept = 0, slope = 1))+
   labs(y='Study Outdoor Ozone, ppb', x='Average.RH')+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
                                  after_stat(rr.label), sep = "*\", \"*")),size=3)+
   theme_bw()+
-  coord_cartesian(xlim=c(18,55),ylim=c(18,55))+
+  #coord_cartesian(xlim=c(18,55),ylim=c(18,55))+
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.position = 'bottom', strip.text = element_text(size=9))
+dev.off()
+
+#plot Ozone vs RH (Outdoor) color AC type
+png(".//Graphics//Ozone//Outdoor.Ozone.RH.Comparison.ac.type.png",width=3.6, height=3, units="in", res=300)
+ggplot(data=ozone.summary.out,aes(x=average.RH, y=O3.ppb))+
+  geom_point(aes(color=ac.type))+
+  labs(y='Study Outdoor Ozone, ppb', x='Average.RH')+
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
+  theme_bw()+
+  #coord_cartesian(xlim=c(18,55),ylim=c(18,55))+
   theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
         axis.title = element_text(size = 9),plot.title = element_text(size = 9),
         legend.position = 'bottom', strip.text = element_text(size=9))
@@ -342,3 +356,4 @@ ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
                                  after_stat(rr.label), sep = "*\", \"*")))
+
