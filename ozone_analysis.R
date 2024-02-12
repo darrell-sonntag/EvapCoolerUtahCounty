@@ -35,7 +35,6 @@ ozone.summary <- summary %>%
 
 write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
-
 ## Bring in the plot of the study ozone vs. the UDAQ ozone measurements
 #plot Ozone vs UDQA ozone (all homes)
 png(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=3.6, height=3, units="in", res=300)
@@ -58,7 +57,8 @@ dev.off()
 
 ## make a plot where you y and x axis goes to zero
 ## include the black y=x line
-## try changing the y vs. x
+## try chaning the y vs. x
+
 
 ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   geom_point(aes(color=factor(House.Number)))+
@@ -132,24 +132,24 @@ ggplot(data = ozone.summary,  aes(y = house.number.visit, x = O3.ppm*1000,fill=L
 smoke.event <- interval(ymd('2022-09-08'),ymd('2022-09-12'))
 
 ozone.wide <- ozone.summary %>%
-  select(-O3.mg.m3,-time.hours,-O3.ppm,-O3.LOD.ppm) %>%
+  select(-O3.mg.m3,-time.hours,O3.ppm,-O3.LOD.ppm) %>%
   pivot_wider(names_from = Location,values_from = c(ozone.max,O3.Below.detection,average.temperature.Celsius,
                                                     min.temperature,max.temperature,average.RH,min.RH,max.RH),names_sort = T) %>%
   filter(!(house.number.visit %in% c('H02 V2','H03 V2')))  %>%
   mutate(`I/O` = ozone.max_In / ozone.max_Out) %>%
-  mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal'))
+  mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal'))%>%
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
 
-ozone.wide.summer <- ozone.wide %>%
-  filter(season == 'Summer')
+
 
 ## Calculate means
 
 ozone.ave.house <- ozone.wide %>%
   group_by(House.Number,`Type of Air Conditioner` ) %>%
-  summarize(ave_ozone_IO = mean(`I/O`))
+  summarize(mean_house = mean(`I/O`))
 
 #levels.house <-ozone.ave.house[order(ozone.ave.house$ave_ozone_IO),'House.Number']
-levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$ave_ozone_IO)]
+levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$mean_house)]
 levels.house
 
 ozone.wide <- ozone.wide %>%
@@ -159,12 +159,40 @@ ozone.wide <- ozone.wide %>%
 ozone.wide$`Type of Air Conditioner` <- ifelse(ozone.wide$`Type of Air Conditioner` == "Central", "AC",
                                                ifelse(ozone.wide$`Type of Air Conditioner` == "Evaporative", "EC",
                                                       ozone.wide$`Type of Air Conditioner`))
-
-ozone.wide.summer$`Type of Air Conditioner` <- ifelse(ozone.wide.summer$`Type of Air Conditioner` == "Central", "AC",
-                                                      ifelse(ozone.wide.summer$`Type of Air Conditioner` == "Evaporative", "EC",
-                                                             ozone.wide.summer$`Type of Air Conditioner`))
 ###
 ## 
+
+#plot Ozone vs Temp (Outdoor)
+png(".//Graphics//Ozone//Outdoor.Ozone.Temp.Comparison.png",width=3.6, height=3, units="in", res=300)
+ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=O3.ppb))+
+  geom_point(aes(color=Monitor.closest))+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(y='Study Outdoor Ozone, ppb', x='Outdoor Temperature, C')+
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
+  theme_bw()+
+  coord_cartesian(xlim=c(20,35),ylim=c(10,55))+
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.position = 'bottom', strip.text = element_text(size=9))
+dev.off()
+
+#plot Ozone vs RH (Outdoor)
+png(".//Graphics//Ozone//Outdoor.Ozone.RH.Comparison.png",width=3.6, height=3, units="in", res=300)
+ggplot(data=ozone.wide,aes(x=average.RH_Out, y=O3.ppb))+
+  geom_point(aes(color=Monitor.closest))+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(y='Study Outdoor Ozone, ppb', x='Average.RH')+
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
+  theme_bw()+
+  coord_cartesian(xlim=c(18,55),ylim=c(18,55))+
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.position = 'bottom', strip.text = element_text(size=9))
+dev.off()
 
 png(".//Graphics//Ozone//ozone.io.png", width=6.5, height=4, units="in", res=300)
 ggplot(data = ozone.wide,aes(x = House.Number, y = `I/O`,fill=House.Number)) + 
@@ -233,26 +261,50 @@ ggplot(data = filter(ozone.visit.wide,`Type of Air Conditioner` =='EC'),aes(x = 
         plot.margin= margin(t=10,r=5,b=0,l=0))
 #dev.off()
 
+## Look at potential correlation with respect to time
+
+ozone.wide <- ozone.wide %>%
+  mutate(year = year(first.day))
+
+ggplot(data = ozone.wide,aes(x = first.day, y = `I/O`,fill=`House.Number`)) + 
+  geom_jitter(size=2,alpha=0.9,width=0.2,pch=21,color='black')+
+  theme_bw()+
+  labs(x='House', y= 'I/O')+
+  facet_grid(`Type of Air Conditioner`~ year, scales='free') +
+  expand_limits(y=0)+ 
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(angle = 90,vjust =0.5, size=8))
+
+
 ###
-# Calculate 95% condfidence intervals for both
-### 
+#Now calculate the average of the averages, and a 95% confidence intervals
+#
 
-## create empty data frame to store correlation stats
+ozone.ave.type.2 <- ozone.ave.house %>%
+  group_by(`Type of Air Conditioner`) %>%
+  summarize(mean = mean(mean_house),
+            sd = sd(mean_house),
+            n = sum(!is.na(mean_house))) %>%
+  mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
+  mutate(bound = tcrit*sd/sqrt(n)) %>%
+  mutate(lower.95 = mean-bound) %>%
+  mutate(upper.95 = mean+bound ) 
 
-sidepak.t.test.summer <- data.frame(statistic = character(), 
-                                    season = character(),
-                                    p.value = numeric(),
-                                    lower.bound = numeric(),
-                                    upper.bound = numeric()
-)
+## plot 
+png(".//Graphics//Ozone//O3.IO.ratio.AC.type.png", width=4.5, height=4, units="in", res=300)
+ggplot(data=ozone.ave.type.2,aes(x=`Type of Air Conditioner`, y= mean, fill=`Type of Air Conditioner`))+
+  geom_col()+
+  geom_errorbar(aes(ymin=lower.95,ymax=upper.95,width=0.25))+
+  theme_bw()+
+  labs(y='Mean I/O Ozone ratio') +
+  scale_fill_brewer(palette = 'Paired')+
+  theme(legend.position = 'none')+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
+        legend.title = element_blank(),legend.text = element_text(size = 10),
+        strip.text = element_text(size=10))
+dev.off()
 
-sidepak.t.test.summer[1,1] <- "I/O"
-sidepak.t.test.summer[1,3] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$p.value
-sidepak.t.test.summer[1,4] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$conf.int[1]
-sidepak.t.test.summer[1,5] <- t.test(`I/O`~ac.type,data=sidepak.stats.summer,var.equal=F)$conf.int[2]
-
-
-## Figure S-17
+## Figure 
 png(".//Graphics//Ozone//O3.IO.vs.temp.png", width=4.5, height=4, units="in", res=300)
 ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=`I/O`))+
   geom_point(aes(color=day.type))+
@@ -267,22 +319,9 @@ ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=`I/O`))+
         strip.text = element_text(size=10))
 dev.off()
 
-png(".//Graphics//Ozone//O3.IO.vs.temp.summer.png", width=4.5, height=4, units="in", res=300)
-ggplot(data=ozone.wide.summer,aes(x=average.temperature.Celsius_Out, y=`I/O`))+
-  geom_point(aes(color=day.type))+
-  geom_smooth(color = "black",method='loess',span=2) +
-  labs(x = "Outdoor Temperature, C ")+
-  theme_bw()+
-  facet_grid(.~`Type of Air Conditioner`) +
-  theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
-        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
-        legend.title = element_blank(),legend.text = element_text(size = 10),
-        strip.text = element_text(size=10))
-dev.off()
 
-png(".//Graphics//Ozone//O3.IO.vs.RH.summer.png", width=4.5, height=4, units="in", res=300)
-ggplot(data=ozone.wide.summer,aes(x=average.RH_Out, y=`I/O`))+
+png(".//Graphics//Ozone//O3.IO.vs.RH.png", width=4.5, height=4, units="in", res=300)
+ggplot(data=ozone.wide,aes(x=average.RH_Out, y=`I/O`))+
   geom_point(aes(color=day.type))+
   geom_smooth(color = "black",method='loess',span=2) +
   labs(x = "Relative Humidity ")+
@@ -303,4 +342,3 @@ ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
                                  after_stat(rr.label), sep = "*\", \"*")))
-

@@ -467,7 +467,8 @@ summary(lm(Ozone.UDAQ.ppb~O3.ppb,study.summary.out, na.action = na.omit))
 # new summary table
 summary <- study.summary  %>%
   left_join(unique(TRH_Summary_Table), by = c("House.Number","Visit","Location" = "Sample.Location")) %>%
-  left_join(acdata,by=c('House.Number'))
+  left_join(acdata,by=c('House.Number')) %>%
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
 
 
 
