@@ -1,0 +1,594 @@
+---
+title: "HW4_statistical_tests"
+author: "Darrell Sonntag"
+date: "2024-02-08"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl) ## this is part of the tidyverse, but for some reason, requiring me to load it separately
+library(ggpmisc) ## needed for plotting the regression equation with stat_poly_line
+library(moderndive) ## Needed for get_regression_table()
+library(infer) ## infer is a tidyverse package
+library(knitr) ## for the kable function
+library(tinytable) ## for the tinytable tt()
+```
+
+## Objectives:
+
+-   Read in many files and manipulate and combine them
+-   Create many plot many files of the indoor vs. outdoor correlation of
+    PM2.5 for each home visit
+-   Conduct many linear regression fits (and store the output)
+-   Graph the summary statistics from the regression
+-   Conduct t-test of the summary statistics from the regressions
+
+## Background
+
+The data we will be analyzed is in a paper that we recently published
+evaluating particle concentrations (PM2.5) inside homes with
+evaporative coolers compared to central air conditioners
+<https://www.mdpi.com/2071-1050/16/1/177> The instrument we used is
+called a SidePak, and we collected data every minute inside and outside
+each home visit for \~ 24 hours. You will be repeating some of the
+analysis outlined above to evaluate if there is a difference in the
+penetration of PM2.5 in homes.
+
+Clone the following public repository to your computer
+
+<https://github.com/darrell-sonntag/EvapCoolerUtahCounty>
+
+Read in the files stored in side the two SidePak folders in the data
+folder
+
+-   ./Data/SidePak_txt_1
+-   ./Data/SidePak_txt_2
+
+I have the steps for reading in the files from /Data/SidePak_txt_1
+
+```{r}
+
+list_1.txt = list.files("../../EvapCoolerUtahCounty/Data/SidePak_txt_1", pattern = "*.txt", full.names = TRUE)
+
+```
+
+Below, I wrote a function to read in the txt files - Use read_csv - Skip
+the first 30 rows - Assign the column names 'Date', 'Time','Aerosol'
+
+```{r}
+
+read_SidePak_1 <- function(flnm) {
+  read_csv(flnm,col_names=c("Date","Time","Aerosol"),skip=30) %>%
+    mutate(date.time = mdy_hms(paste(Date,Time))) %>%
+            mutate(Aerosol = as.numeric(Aerosol)) %>% 
+            mutate(filename = flnm) 
+    }
+
+```
+
+For loop way to do it using the equation is below
+
+```{r warning=FALSE, message=FALSE}
+SidePak_1 <- data.frame() # create empty data.frame
+for (i in 1:length(list_1.txt)) {
+  data.i <- read_SidePak_1(list_1.txt[i]) 
+            
+  SidePak_1 <- bind_rows(SidePak_1,data.i)
+}
+
+```
+
+Here's the preferred (tidyverse) way of handling it
+
+<https://r4ds.hadley.nz/iteration#reading-multiple-files>
+
+```{r warning=FALSE, message=FALSE}
+
+SidePak_list <- map(list_1.txt,read_SidePak_1)
+## You could use lapply instead of map
+## map is in the tidyverse version of lapply (PURR), it maps a function (read_SidePak) to a vector or a list (list.txt), and stores the output in a list
+
+SidePak_1 <- list_rbind(SidePak_list)
+## list_rbind binds all the elements of a list into a single dataframe
+
+```
+
+The second method is a little faster, and a little easier to follow the
+code, but both work.
+
+Now it's your turn!
+
+Read in the files from
+
+-   ./Data/SidePak_txt_2
+
+Use the tidyversion way (not the loop)
+
+-   Create a new function called read_SidePak_2
+-   The files in SidePak_txt_2 are a different format than SidePak_txt_1
+-   file is tab delimited, so use the read_delim function (not read_csv)
+-   You don't need to skip the first 30 lines.
+-   Make it so that read_SidePak_2 files have the same column names as
+    the read_SidePak1 files
+
+```{r}
+
+
+
+```
+
+Run your function here, using map, and list_rbind
+
+```{r warning=FALSE, message=FALSE}
+
+
+```
+
+Create new dataframe called SidePak
+
+-   Bind SidePak_1 and SidePak_2 together
+
+-   Convert Aerosol from units of mg.m3 to ug.m3 (multiply by 1000)
+
+-   Add season = "Summer" if In June, July, August, or September
+
+-   Hint: use month(Date) to find the month
+
+-   Use str_split_i(), to return a subset of a character string from
+    filename <https://stringr.tidyverse.org/reference/str_split.html>
+
+-   Remove the path from filename, and the .txt extension
+
+-   Split the filename by pattern = "/"
+
+-   The first element is the House.Number
+
+-   The second is the Visit
+
+-   The third is the Location
+
+-   Filter out any rows that have missing Time
+
+-   Create a new variable called round.date.time using
+    Round_date(date.time, unit="minute")
+
+```{r}
+
+```
+
+Read in the first sheet of the "Research Data Master List.xlsx" file
+stored in the data folder Assign it to a data.frame called ac.data Just
+select the House.Number and the "Type of Air Conditioner" create a new
+shorthand variable called ac.type where Central = AC and Evaporative =EC
+
+```{r}
+
+```
+
+Create a new df called SidePak.ac - Join the ac.data to the SidePak data
+using 'House.Number' - Create a new variable called House.Number.Visit
+that combines the House.Number and the Visit
+
+```{r}
+
+      
+```
+
+Create a vector called hv with all the unique House.Number.Visits
+
+```{r}
+
+```
+
+Create a series of time-series plots of the data from each visit x-axis
+is time, use geom_line, color for location Put the name of the
+House.Number.Visit on the title of each graph
+
+```{r}
+
+
+```
+
+Note there are many days with missing data for either indoor or outdoor
+measurements
+
+Create a data.frame that summarizes SidePak.ac by House.Number.Visit and
+Location
+
+-   the sum of all the Aerosol measurements
+-   the sum of non-missing observations
+-   and the interval of time with valid measurements (I added this for
+    you below)
+
+```{r}
+SidePak.qa.sum <- SidePak.ac %>%
+  group_by(House.Number.Visit, Location) %>%
+  summarize(
+    ## Calculate the sum 
+    ## Calculate the number of Aerosol measurements
+    min.time = min(round.date.time),
+    max.time = max(round.date.time),
+    interval = max.time - min.time) %>% 
+    mutate(interval.hour = as.numeric(as.duration(interval), "hours"))
+```
+
+Create a dataframe called SidePak.qa.sum.wide from SidePak.qa.sum
+
+-   Pivot SidePak.qa.sum wider to identify how valid paired Indoor and
+    Outdoor visits we have
+-   Filter out any visits that have Aerosol measurements that sum to
+    zero from either the indoor or outdoor measurements
+-   Filter out data without at least 4 hours for both Indoor and Outdoor
+    measurements
+-   In addition, filter out the following House.Number.Visits
+    -   H09 V2 (Indoor and outdoor data are separate dates)
+    -   H16 V1 (In & Out files are the same data)
+    -   H17 V3 (Indoor SidePak is much larger than indoor. Outdoor
+        SidePak ends prematurely)
+
+```{r}
+
+
+```
+
+Create a vector with a list of the valid home visits called hv.qa
+
+```{r}
+
+
+```
+
+Create a new table called SidePak.correlation from SidePak.ac - Create a
+wide version, where there are two columns for Aerosol, one for location
+In and another for location Out - Use pivot_wider
+
+Hint: Remember to un-select Time, date.time, and filename
+
+(which are unique to either the indoor or outdoor fields)
+
+```{r}
+
+
+```
+
+Based on the QA steps above, and inspection of the sidepak plots, we
+identified windows of time with problematic data. We removed stretches
+where their appeared to be sources of indoor air pollution
+
+We created a new dataframe called SidePak.correlation.qa
+
+Update the commented line below, to remove House.Number.Visits that are
+no on the list of qa'd visit
+
+```{r}
+
+SidePak.correlation.qa <- SidePak.correlation %>%
+  # Add a filter statement here to remove the homes that are not on the hv.qa list
+  filter(!(House.Number == 'H03' & Visit == 'V1' & between(round.date.time,ymd_hms('2022-07-27 19:54:00'),ymd_hms('2022-07-28 11:20:00'))))  %>%
+  filter(!(House.Number == 'H03' & Visit == 'V2' & between(round.date.time,ymd_hms('2022-12-09 08:19:00'),ymd_hms('2022-12-09 11:01:00'))))  %>%
+  filter(!(House.Number == 'H08' & Visit == 'V2' & between(round.date.time,ymd_hms('2022-09-09 10:15:00'),ymd_hms('2022-09-09 14:03:00'))))  %>%
+  filter(!(House.Number == 'H10' & Visit == 'V2' & between(round.date.time,ymd_hms('2022-12-01 07:45:00'),ymd_hms('2022-12-01 09:55:00'))))  %>%
+  filter(!(House.Number == 'H12' & Visit == 'V1' & between(round.date.time,ymd_hms('2022-08-12 10:30:00'),ymd_hms('2022-08-12 14:34:00'))))  %>%
+  filter(!(House.Number == 'H17' & Visit == 'V2' & between(round.date.time,ymd_hms('2023-01-28 04:06:00'),ymd_hms('2023-01-28 05:43:00'))))  %>%
+  filter(!(House.Number == 'H29' & Visit == 'V2' & between(round.date.time,ymd_hms('2023-08-21 20:10:00'),ymd_hms('2023-08-21 23:16:00'))))  %>%
+  filter(!(House.Number == 'H33' & Visit == 'V1' & between(round.date.time,ymd_hms('2023-09-01 13:02:00'),ymd_hms('2023-09-01 16:36:00'))))  
+
+
+```
+
+Create series of plots with the correlation
+
+-   Out concentration on the x-axis
+-   In concentration on the y-axis
+-   You can use a for loop, and pdf() and dev.off() to make a single
+    file with all the plots (like we did in class).
+-   Or you can make many individual plots using ggsave(). Here's an
+    example here that uses an alterantive to loop,
+    <https://r4ds.hadley.nz/iteration#saving-plots>
+
+```{r}
+
+
+
+```
+
+Now, create a dataframe that stores the linear model coefficients for
+each house.visit.
+
+The data.frame should include the following variables:
+
+-   Visit = character()
+-   ac.type=character()
+-   Date = POSIXct() (Use the starting time)
+-   intercept =numeric()
+-   intercept.lower =numeric() (lower 95% CI)
+-   intercept.upper = numeric() (upper 95% CI)
+-   slope = numeric()
+-   slope.lower = numeric()
+-   slope.upper = numeric()
+-   p.value = numeric()
+-   r.squared = numeric()
+
+There are multiple ways of creating this table. I provided two examples
+of doing this (in part to show the benefit of the Tidyverse methods)
+
+1.  Loop + BaseR (What I did for my paper)
+
+2.  Create a function and map it to the dataset using tidyverse
+    functions (Recommended!)
+
+3.  Bonus point +1 for someone who does this a more succinct way than I
+    did with version 2.
+
+Example 1. Here's the loop way, using mostly Base R methods
+
+Start with creating an empty data.frame
+
+```{r}
+
+lm.coefficients <- data.frame(House.Number = character(), 
+                     Visit = character(),
+                     ac.type=character(),
+                     Date = POSIXct(),
+                     season = character(),
+                     intercept = numeric(),
+                     intercept.lower =numeric(),
+                     intercept.upper = numeric(),
+                     slope = numeric(),
+                     slope.lower = numeric(),
+                     slope.upper = numeric(),
+                     p.value = numeric(),
+                     r.squared = numeric()
+                      )
+
+
+```
+
+Conduct a loop, that loops through the vector of hv.qa
+
+-   Filters the data to just the data from that House.Number.Visit
+-   Fits a linear model
+-   Hint: Assign the linear fit to be linear object (call it lm_object)
+    -   Summary(lm_object) returns a list
+    -   You can use summary(lm_object)[['coefficients']] to return a
+        matrix with the coefficients and p-values
+    -   You can access the values by giving the [rowname, columnname]
+    -   For
+        example,summary(lm_object)[['coefficients']]['(Intercept)','Estimate']
+    -   Gives you the value on the Intercept row, and the Estimate
+        column
+    -   Report the p-value with the slope term
+    -   confint(lm_object,.95) returns the 95% confidence intervals of
+        the model parameters
+
+```{r}
+for (i in 1: length(hv.qa)){
+            ## subset the data
+            ## fit the linear model assign it to an object
+    
+            lm.coefficients[i,'House.Number'] = data.i$House.Number[1] # here's the first information
+            # store the other descriptive information (Visit, ac.type, and Date) 
+            
+            lm.coefficients[i,'intercept'] = summary(lm.i)[['coefficients']]['(Intercept)','Estimate']
+            # store the other statistics from the lm fit outlined in the lm.coefficients a
+         
+}
+
+```
+
+2.  Here's a function, map, tidyverse function, way (Recommended!)
+
+Create a lm_coeff function that fits a linear model,
+
+I used the get_regression_table from the 'moderndive' package to extract
+out the regression coefficients. The get_regression_table uses some very
+useful tidyverse functions, including tidy and clean_names. Take a look
+here:
+
+<https://moderndive.com/5-regression.html#underthehood>
+
+```{r}
+
+lm_coeff <- function(data){
+            ## fit a linear model to lm_object
+            
+            output <- get_regression_table(lm_object) %>%
+                      # Add in the R2 to the output  
+                      ## add identifiers
+                 
+            return(output)
+}
+
+
+```
+
+Next apply the lm_coeff to a list of dataframes that are split up by
+home.visits.
+
+First, I used the group_split() tidyverse function, to split up the
+dataframe frame into a list (similar to the baseR split() function).
+
+Info on the group_split here. You could also use the base R version of
+split(), and then use lapply()
+<https://dplyr.tidyverse.org/reference/group_split.html>
+
+Then I used map() (similar to lapply() to each of the data.frames in the
+list. Here's is an example of using map here:
+
+<https://purrr.tidyverse.org/reference/map.html>
+
+Map() returns a list of output. I then used list_rbind() to bind all the
+list elements of the back together into a dataframe/tibble).
+
+```{r}
+lm.coefficients.2 <- SidePak.correlation.qa %>%
+                       ## use group_by
+                       ## use group_split
+                       ## map lm_coeff
+                       ## use list_rbind
+                       ## rename 'Out' estimate as 'Slope'
+                       ## rearrange the columns to have the descriptive info first, House.Number, Visit, ac.type, date, season, then the coefficients 
+  
+  
+```
+
+The code is much more succinct using the tidyverse method, right?
+
+Now print the lm.coefficients.2 results into a table
+
+You can use kable Or Hayden introduced me to tinytable
+<https://vincentarelbundock.github.io/tinytable/>
+
+I'm trying tinytable() (since I have never really figured out kable in
+the library knitr). Tinytable seems easier
+
+```{r}
+library(tinytable)
+tt(lm.coefficients.2)
+
+```
+
+Graph the intercept, slope, and R2 from each home visit using box plots,
+with separate box plots for the AC and EC homes.
+
+First, I will create a data.frame called lm.coefficients.wide. I will
+first just select the id columns, the intercept and slope estimates, and
+the R2 Then I will pivot the intercept and slope wider to be their own
+columns
+
+```{r}
+lm.coefficients.wide <- lm.coefficients.2 %>%
+  select(House.Number, Visit, ac.type, Date, season, term, estimate, R2) %>%
+  pivot_wider(names_from = term, values_from = estimate)
+```
+
+Now make a table called lm.coefficients.long
+
+Then I will pivot the values of intercept, slope, and R2 in a column
+called 'value' And the name of the statistic (intercept, Slope, R2) in a
+column called 'statistic'
+
+Keep the descriptors (House.Number,Visit, and ac.type )
+
+```{r}
+
+lm.coefficients.long <- lm.coefficients.wide %>%
+                          ## pivot longer
+                          ## mutate statistic to give make it a factor with ordered levels (intercept, Slope, R2)
+```
+
+Re-create the following graph:
+
+![](../figs/Boxplot.regression.comp.png)
+
+-   Graph the Intercept, Slope, and R2 from each home visit in a box plot organized by season and AC type
+-   Use geom_boxplot
+-   use facet_grid to create the following graph
+-   Save your picture to your /figs/folder
+-   You don't need to make all the updates
+
+
+```{r}
+
+
+
+```
+
+## Statistical Testing
+
+Conduct a t-test to see if the mean statistic by season is statistically
+different by air conditioner type.
+
+?t.test is the base r method ?t_test is a tidier version of t.test, but
+allows piping (library(infer))
+
+## First do an example, with just the slope coefficients in the summer
+
+```{r}
+
+## first create a subset of just the slope values and in the summer
+
+
+
+## Conduct a t-test to see what it returns t_test()
+
+
+```
+
+Then, create a function that conducts t_test, and also stores the
+'statistic' and 'season' in the output
+
+```{r}
+
+t_test_ac <- function(data){
+                    ## conduct t_test on data
+                    ## add statistic
+                    ## add season
+  
+                    ## return output
+}
+
+```
+
+Then, split up your lm.coefficients.long 
+
+- group_split() 
+- map your function to the split groups 
+- list_rbind them together
+
+```{r}
+t.test.ac <- lm.coefficients.long %>%
+                  ## group_split
+                  ## map
+                  ## list_rbind
+```
+
+Then display the results using a table
+
+```{r}
+
+
+```
+
+## Extra credit (+1)
+
+Recreate the following figure
+
+![](../figs/Fancy.Boxplot.regression.comp.png)
+
+Also plot the mean values for
+each statistic
+
+Use geom_signif from the library(ggsignif) to plot t-test results
+
+Note:
+<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4111019/#:~:text=Through%20the%201960s%20it%20was,used%20to%20indicate%20P%20%3C%200.001.>
+
+```{r}
+## calculate means and 95% CI
+
+
+```
+
+```{r}
+library(ggsignif)
+library(RColorBrewer)
+
+own.colors <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
+
+
+
+ggsave("../figs/Fancy.Boxplot.regression.comp.png", width=6, height=6, units="in")
+
+```
+
+# hi people
+
+# i have the best dad in the whole entire universe
+
+# i love basketball
