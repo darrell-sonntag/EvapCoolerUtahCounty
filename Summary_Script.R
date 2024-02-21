@@ -773,6 +773,9 @@ summary(summer.in.evap.lm)
 
 confint(summer.in.evap.lm, 2, level = 0.95)
 
+
+
+
 ################
 ## box plots
 #############
@@ -973,3 +976,34 @@ Fin.wildfire <- sidepak.stats %>%
   mutate(bound = qt*sd/sqrt(n)) %>%
   mutate(lower.95 = mean-bound) %>%
   mutate(upper.95 = mean+bound)
+
+
+
+## What about t-tests looking at differences in the individual Fin between wildfire and normal days?
+
+## Is the Fin significantly higher during the wildfire event?
+
+library(infer)
+
+t_test_fire <- function(data){
+  t.data  <- data %>%
+    t_test(value~day.type, order = c("Normal", "Wildfire Smoke")) %>%
+    mutate(statistic = data$statistic[1]) %>%
+    mutate(season = data$season[1]) %>%
+    mutate(ac.type = data$ac.type[1]) %>%
+    relocate(season,1) %>%
+    relocate(ac.type,2)
+  return(t.data)
+}
+
+
+t.test.fire <- sidepak.stats.long %>%
+  filter(season == 'Summer') %>%
+  group_by(statistic,ac.type) %>%
+  group_split() %>%
+  map(function(df) t_test_fire(data = df)) %>%
+  list_rbind() 
+
+## Yes, the difference is statistically significant at a 95% confidence intervals
+
+## What is the mean Fin during 
