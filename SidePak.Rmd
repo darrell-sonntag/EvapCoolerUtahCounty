@@ -31,8 +31,8 @@ library(tinytable) ## for the tinytable tt()
 ## Background
 
 The data we will be analyzed is in a paper that we recently published
-evaluating particle concentrations (PM2.5) inside homes with
-evaporative coolers compared to central air conditioners
+evaluating particle concentrations (PM2.5) inside homes with evaporative
+coolers compared to central air conditioners
 <https://www.mdpi.com/2071-1050/16/1/177> The instrument we used is
 called a SidePak, and we collected data every minute inside and outside
 each home visit for \~ 24 hours. You will be repeating some of the
@@ -486,12 +486,12 @@ Re-create the following graph:
 
 ![](../figs/Boxplot.regression.comp.png)
 
--   Graph the Intercept, Slope, and R2 from each home visit in a box plot organized by season and AC type
+-   Graph the Intercept, Slope, and R2 from each home visit in a box
+    plot organized by season and AC type
 -   Use geom_boxplot
 -   use facet_grid to create the following graph
 -   Save your picture to your /figs/folder
 -   You don't need to make all the updates
-
 
 ```{r}
 
@@ -535,11 +535,11 @@ t_test_ac <- function(data){
 
 ```
 
-Then, split up your lm.coefficients.long 
+Then, split up your lm.coefficients.long
 
-- group_split() 
-- map your function to the split groups 
-- list_rbind them together
+-   group_split()
+-   map your function to the split groups
+-   list_rbind them together
 
 ```{r}
 t.test.ac <- lm.coefficients.long %>%
@@ -561,8 +561,7 @@ Recreate the following figure
 
 ![](../figs/Fancy.Boxplot.regression.comp.png)
 
-Also plot the mean values for
-each statistic
+Also plot the mean values for each statistic
 
 Use geom_signif from the library(ggsignif) to plot t-test results
 
