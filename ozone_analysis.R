@@ -318,7 +318,7 @@ ggplot(data=ozone.ave.type.2,aes(x=`Type of Air Conditioner`, y= mean, fill=`Typ
         strip.text = element_text(size=10))
 dev.off()
 
-## Figure 
+## I/O vs. other factors
 png(".//Graphics//Ozone//O3.IO.vs.temp.png", width=4.5, height=4, units="in", res=300)
 ggplot(data=ozone.wide,aes(x=average.temperature.Celsius_Out, y=`I/O`))+
   geom_point(aes(color=day.type))+
@@ -347,6 +347,24 @@ ggplot(data=ozone.wide,aes(x=average.RH_Out, y=`I/O`))+
         legend.title = element_blank(),legend.text = element_text(size = 10),
         strip.text = element_text(size=10))
 dev.off()
+
+
+names(ozone.wide)
+
+png(".//Graphics//Ozone//O3.IO.vs.Ozone.png", width=4.5, height=4, units="in", res=300)
+ggplot(data=ozone.wide,aes(x=Ozone.UDAQ.ppb, y=`I/O`))+
+  geom_point(aes(color=day.type))+
+  geom_smooth(color = "black",method='loess',span=2) +
+  labs(x = "O3 Concentration (ppb) at closest UDAQ monitor")+
+  theme_bw()+
+  facet_grid(.~`Type of Air Conditioner`) +
+  theme(legend.position = 'bottom')+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
+        legend.title = element_blank(),legend.text = element_text(size = 10),
+        strip.text = element_text(size=10))
+dev.off()
+
 
 #plot Ozone vs UDAQ ozone (all homes)
 ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
