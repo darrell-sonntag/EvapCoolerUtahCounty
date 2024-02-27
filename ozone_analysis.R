@@ -357,13 +357,36 @@ ggplot(data=ozone.wide,aes(x=Ozone.UDAQ.ppb, y=`I/O`))+
   geom_smooth(color = "black",method='loess',span=2) +
   labs(x = "O3 Concentration (ppb) at closest UDAQ monitor")+
   theme_bw()+
-  facet_grid(.~`Type of Air Conditioner`) +
+  facet_grid(.~ac.type) +
+  theme(legend.position = 'bottom')+
+  expand_limits(y=0)+
+  scale_y_continuous(breaks = seq(0,1,.2))+
+  scale_x_continuous(breaks = seq(34,54,4))+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
+        legend.title = element_blank(),legend.text = element_text(size = 10),
+        strip.text = element_text(size=10))
+dev.off()
+
+
+## does that mean there is a non-linear trend between indoor and outdoor concentrations?
+names(ozone.wide)
+
+png(".//Graphics//Ozone//Indoor.Outdoor.png", width=4.5, height=4, units="in", res=300)
+ggplot(data=ozone.wide,aes(x=ozone.max_Out*1000, y=ozone.max_In*1000))+
+  geom_point(aes(color=day.type, shape=day.type), alpha=.5, size=3)+
+  geom_smooth(color = "black",method='loess',span=2) +
+  labs(x = "Outdoor Ozone Concentration, ppb", y="Indoor Ozone Concentration, ppb")+
+  theme_bw()+
+  facet_grid(.~ac.type) +
   theme(legend.position = 'bottom')+
   theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
         axis.title = element_text(size = 10),plot.title = element_text(size = 20),
         legend.title = element_blank(),legend.text = element_text(size = 10),
         strip.text = element_text(size=10))
 dev.off()
+
+
 
 
 #plot Ozone vs UDAQ ozone (all homes)
