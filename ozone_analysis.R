@@ -35,49 +35,35 @@ ozone.summary <- summary %>%
 
 write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
-## Bring in the plot of the study ozone vs. the UDAQ ozone measurements
-#plot Ozone vs UDQA ozone (all homes)
-png(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=3.6, height=3, units="in", res=300)
+
+## Figure S-1 UDAQ Ozone vs. Study Ozone (all homes)
+
+own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
+
+
 ggplot(data=study.summary.out,aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
   geom_point(aes(color=Monitor.closest))+
   geom_abline(aes(intercept = 0, slope = 1))+
-  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Average Ozone, ppb')+
+  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Monitor Ozone, ppb')+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
+                                 after_stat(rr.label), sep = "*\", \"*")),
+               size=5)+
   theme_bw()+
-  coord_cartesian(xlim=c(18,55),ylim=c(18,55))+
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
-        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.position = 'bottom', strip.text = element_text(size=9))
-dev.off()
+  coord_cartesian(xlim=c(18,50),ylim=c(18,50))+
+  scale_color_manual(name = 'Closest Monitor', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'bottom')
 
-#plot Ozone vs UDQA ozone (all homes)
-## update the format
-
-## make a plot where you y and x axis goes to zero
-## include the black y=x line
-## try chaning the y vs. x
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=6, height=4.5, units="in", dpi=300)
 
 
-ggplot(data=study.summary.out,aes(x=O3.ppb, y=Ozone.UDAQ.ppb))+
-  geom_point(aes(color=factor(House.Number)))+
-  geom_abline(aes(intercept = 0, slope = 1))+
-  labs(x='Study Ozone Concentration ppb', y='UDAQ Average Ozone ppb')+
-  expand_limits(y=0,x=0)+
-  stat_poly_line() +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*")))
-
-## ozone
-## plot a summary plot
-## indoor and outdoor ozone concentration
-## minimum detection limit
-## organized by date?
-
-
-## graph with date instead
+## plot a summary plot by date
 ## Figure 1
+
 ozone.summary$house.number.visit <- factor(ozone.summary$house.number.visit,levels=rev(sort(unique(ozone.summary$house.number.visit))),ordered=T)
 ozone.summary$house.number.visit.date <- factor(ozone.summary$house.number.visit.date,levels=rev(sort(unique(ozone.summary$house.number.visit.date))),ordered=T)
 ozone.summary$Location <- factor(ozone.summary$Location,levels=c("Out","In"),ordered=T)
@@ -86,27 +72,47 @@ lapply(ozone.summary,class)
 
 # I prefer the plot by date...
 
-png(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=10, height=12, units="in", res=300)
+### sustainability Figure 3
+ann_text_LOD <- data.frame(lab = c("Above LOD","Below LOD","Below LOD"), Location = c('Out','Out','Out'),
+                           house.number.visit.date = c('2022-08-11 H12 V1','2023-08-10 H29 V1','2023-08-21 H29 V2'),
+                           ac.type = c("AC","EC","EC"), O3.ppm = c(11/1000,4/1000,4/1000))
+
+# https://r-graphics.org/recipe-annotate-facet
+# https://ggplot2.tidyverse.org/reference/geom_text.html
+# https://ggplot2.tidyverse.org/articles/ggplot2-specs.html
+# hjust and vjust are horizontal and vertical alignment
+# nudge_x and nudge_y are the nudging!
+
+
 ggplot(data = ozone.summary,  aes(y = house.number.visit.date, x = O3.ppm*1000,fill=Location))+  
   geom_col(position=position_dodge2(preserve='single'),width=0.7,color='white')+
   geom_point(aes(x=O3.LOD.ppm*1000,group=Location),color='grey',position=position_dodge(width=0.7)) +
   #geom_line(aes(x=O3.LOD.ppm*1000,group=house.number.visit.date),color="grey")+
   facet_grid(ac.type~.,scales='free_y' ,space='free') +
   scale_fill_brewer(palette = 'Set1')+
-  labs(x = expression(paste("O"[3]," ppb")),title='',y='')+
+  labs(x ="Ozone concentration, ppb",title='',y='')+
   #coord_cartesian(xlim = c(0, 110)) +
   #scale_x_continuous(breaks=seq(0,110,10))+
   theme_bw()+
   guides(fill=guide_legend(reverse=TRUE))+
+  geom_text(data = ann_text_LOD,size = 4,color='grey28',
+            aes(y = house.number.visit.date, x = O3.ppm*1000, label=lab),nudge_y = 0,vjust=0,hjust = 0)+
   theme(legend.position = 'bottom')+
   theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=16),
-        axis.title = element_text(size = 18),plot.title = element_text(size = 20),
-        legend.title = element_text(size = 18),legend.text = element_text(size = 14),strip.text = element_text(size=14))
-dev.off()
+        axis.title = element_text(size = 16),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=-10,r=1,b=-1,l=-1))
+ggsave(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=6, height=8.5, units="in", dpi=900)
 
 
+
+
+#https://ggplot2.tidyverse.org/reference/ggsave.html
+?ggsave
+  
 ## plot again, but sort by house and visit
-#png(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=10, height=12, units="in", res=300)
+
 ggplot(data = ozone.summary,  aes(y = house.number.visit, x = O3.ppm*1000,fill=Location))+  
   geom_col(position=position_dodge2(preserve='single'),width=0.7,color='white')+
   geom_point(aes(x=O3.LOD.ppm*1000,group=Location),color='grey',position=position_dodge(width=0.7)) +
@@ -121,8 +127,8 @@ ggplot(data = ozone.summary,  aes(y = house.number.visit, x = O3.ppm*1000,fill=L
   theme(legend.position = 'bottom')+
   theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=16),
         axis.title = element_text(size = 18),plot.title = element_text(size = 20),
-        legend.title = element_text(size = 18),legend.text = element_text(size = 14),strip.text = element_text(size=14))
-#dev.off()
+        legend.title = element_text(size = 18),legend.text = element_text(size = 14),
+        strip.text = element_text(size=14))
 
 ## future option if we want to add separate legend for the points
 ## https://bookdown.dongzhuoer.com/hadley/ggplot2-book/legend-merge-split
@@ -146,7 +152,7 @@ ozone.summary.out <- ozone.summary %>%
 ## Calculate means
 
 ozone.ave.house <- ozone.wide %>%
-  group_by(House.Number,`Type of Air Conditioner` ) %>%
+  group_by(House.Number,ac.type ) %>%
   summarize(mean_house = mean(`I/O`))
 
 #levels.house <-ozone.ave.house[order(ozone.ave.house$ave_ozone_IO),'House.Number']
@@ -208,21 +214,25 @@ ggplot(data=ozone.summary.out,aes(x=average.RH, y=O3.ppb))+
         legend.position = 'bottom', strip.text = element_text(size=9))
 dev.off()
 
-png(".//Graphics//Ozone//ozone.io.png", width=6.5, height=4, units="in", res=300)
+### Figure 2
+## I/O sorted from lowest to highest
+
 ggplot(data = ozone.wide,aes(x = House.Number, y = `I/O`,fill=House.Number)) + 
   geom_jitter(size=2,alpha=0.9,width=0.15,pch=21,color='black')+
   theme_bw()+
   expand_limits(y=0,x=0)+
   labs(x='House', y= 'I/O')+
-  facet_grid(.~`Type of Air Conditioner`, scales='free') +
+  facet_grid(.~ac.type, scales='free') +
   coord_cartesian(ylim = c(0, 1)) +
   scale_y_continuous(breaks=seq(0,1,.20))+
   theme(legend.position = 'blank')+
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(angle = 90,vjust =0.5, size=8),
-        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
-        plot.margin= margin(t=10,r=5,b=0,l=0))
-dev.off()
+  theme(axis.text.y = element_text(size=14),
+        axis.text.x = element_text(size=10, angle = 90, vjust = 0.5),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        strip.text = element_text(size=14))
+
+ggsave(".//Graphics//Ozone//ozone.io.png", width=6.5, height=4, units="in", dpi=300)
+
 
 ## 
 
@@ -259,7 +269,8 @@ ggplot(data = ozone.visit.wide,aes(x = V1, y = V2)) +
 ## plot just the evap homes
 
 #png(".//Graphics//Ozone//.png", width=6.5, height=7, units="in", res=300)
-ggplot(data = filter(ozone.visit.wide,`Type of Air Conditioner` =='EC'),aes(x = V1, y = V2)) + 
+ggplot(data = filter(ozone.visit.wide,`Type of Air Conditioner` =='EC'),
+       aes(x = V1, y = V2)) + 
   geom_point(size = 2)+
   theme_bw()+
   expand_limits(y=0,x=0)+
@@ -294,7 +305,7 @@ ggplot(data = ozone.wide,aes(x = first.day, y = `I/O`,fill=`House.Number`)) +
 #
 
 ozone.ave.type.2 <- ozone.ave.house %>%
-  group_by(`Type of Air Conditioner`) %>%
+  group_by(ac.type) %>%
   summarize(mean = mean(mean_house),
             sd = sd(mean_house),
             n = sum(!is.na(mean_house))) %>%
@@ -303,19 +314,22 @@ ozone.ave.type.2 <- ozone.ave.house %>%
   mutate(lower.95 = mean-bound) %>%
   mutate(upper.95 = mean+bound ) 
 
-## plot 
+## plot mean with 95% CI
+
+own.colors.3 <- brewer.pal(n = 9, name = "Paired")[c(7:8)]
+display.brewer.all()
+
 png(".//Graphics//Ozone//O3.IO.ratio.AC.type.png", width=4.5, height=4, units="in", res=300)
-ggplot(data=ozone.ave.type.2,aes(x=`Type of Air Conditioner`, y= mean, fill=`Type of Air Conditioner`))+
+ggplot(data=ozone.ave.type.2,aes(x=ac.type, y= mean, fill=ac.type))+
   geom_col()+
   geom_errorbar(aes(ymin=lower.95,ymax=upper.95,width=0.25))+
   theme_bw()+
-  labs(y='Mean I/O Ozone ratio') +
-  scale_fill_brewer(palette = 'Paired')+
+  labs(y='Mean I/O Ozone ratio',x='Air Conditioner Type') +
+  #scale_fill_brewer(palette = 'Paired')+
+  scale_fill_manual(name = 'Air Conditioner Type', values = own.colors.3)+
   theme(legend.position = 'none')+
-  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
-        axis.title = element_text(size = 10),plot.title = element_text(size = 20),
-        legend.title = element_blank(),legend.text = element_text(size = 10),
-        strip.text = element_text(size=10))
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=12),
+        axis.title = element_text(size = 14))
 dev.off()
 
 ## I/O vs. other factors
