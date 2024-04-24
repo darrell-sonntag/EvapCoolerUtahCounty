@@ -7,7 +7,234 @@ library(readxl)
 library(RColorBrewer)
 library(GGally)
 
-# make sure current directory is in the Github/EvapCoolerUtahCounty
+
+
+study.summary.out <- study.summary.out %>%
+  mutate(flow_level = ifelse(`Ave Flow (L/min)`<0.3,"Low","High")) %>%
+  mutate(flow_level = factor(flow_level,levels = c('Low','High'),ordered = T)) %>%
+  mutate(diff = O3.ppb - Ozone.UDAQ.ppb) %>%
+  mutate(year = as.character(year(first.day)))
+
+## Figure S-1 . Plot ozone diff by time-- is that important?
+
+ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=diff, color=flow_level))+
+  geom_point()+
+  labs(x='Date', y='Study Ozone - UDAQ Ozone, ppb')+
+  facet_wrap(~year,scales='free_x') +
+  theme_bw()+
+  scale_color_manual(name = 'Flow rate', values = own.colors.2[c(6,7)])+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=20,b=1,l=1))+
+  theme(legend.position = 'bottom')
+
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.Time.png",width=6, height=4.5, units="in", dpi=300)
+
+
+ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=diff, color=Monitor.closest))+
+  geom_point()+
+  labs(x='Date', y='Study Ozone - UDAQ Ozone, ppb')+
+  facet_wrap(~year,scales='free_x') +
+  theme_bw()+
+  scale_color_manual(name = 'Closest Monitor', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=20,b=1,l=1))+
+  theme(legend.position = 'bottom')
+
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.Time.monitor.png",width=6, height=4.5, units="in", dpi=300)
+
+
+## Look at Ozone from study vs. UDAQ
+
+ozone.udaq.compare <- study.summary.out %>%
+  filter(!is.na(O3.ppb)) %>%
+  select('House.Number','Visit','Location',
+         'Ozone.UDAQ.ppb','Monitor.closest', 'first.day','year',
+         "Ave Flow (L/min)","Total Volume (L)","flow_level",
+         "O3.Below.detection" , "O3.ppb") %>%
+  rename(UDAQ = Ozone.UDAQ.ppb) %>%
+  rename(Study = O3.ppb ) %>%
+  pivot_longer(cols = c(UDAQ,Study), 
+               names_to='O3_measure',values_to = 'O3_ppb')
+
+## Plot
+
+own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
+display.brewer.all()
+
+
+
+
+## Figure S-1
+ggplot(data=ozone.udaq.compare,aes(x=O3_measure, y=O3_ppb, color=O3_measure))+
+  geom_boxplot()+
+  geom_point()+
+  labs(y='Average Outdoor Ozone Concentration, ppb',x='')+
+  theme_bw()+
+  facet_grid(Monitor.closest~year)+
+  expand_limits(y=0)+
+  #coord_cartesian(xlim=c(18,60),ylim=c(18,60))+
+  scale_y_continuous(breaks = seq(0,50,10))+
+  scale_color_manual(name = 'Measurement', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'blank')
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.boxplot.png",width=6, height=6, units="in", dpi=300)
+
+## Look at the diff box plots....
+
+## Figure S-2
+
+
+
+ggplot(data=filter(study.summary.out,!is.na(diff)),aes(y=diff,x =as.character(year), color=Monitor.closest))+
+  geom_boxplot()+
+  geom_point()+
+  labs(y='Study Ozone - UDAQ Ozone, ppb', x='Monitor Location')+
+  theme_bw()+
+  facet_wrap(~Monitor.closest)+
+  #coord_cartesian(xlim=c(18,60),ylim=c(18,60))+
+  scale_color_manual(name = 'Year', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'blank')
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.diff.boxplot.png",width=6, height=4.5, units="in", dpi=300)
+
+
+
+## thoughts:
+
+## could calculate the difference in local and ambient monitor
+## Could estimate a model: diff = flow_level. And then see if the 
+## What I don't understand is that the overal mean seems less biased at low flow
+## But on the other hand, the correlation between the actual and observed observations is lower
+## So, which one is better?
+## perhaps, display two statistics? relative difference? and R2?
+
+names(study.summary.out)
+
+ozone.diff.lm <- lm(formula =   diff ~ year*Monitor.closest + flow_level*Monitor.closest, data=study.summary.out, na.action = na.omit )
+ozone.diff.lm <- lm(formula =   diff ~ year*Monitor.closest , data=study.summary.out, na.action = na.omit )
+ozone.diff.lm <- lm(formula =   diff ~ year + Monitor.closest , data=study.summary.out, na.action = na.omit )
+summary(ozone.diff.lm)
+
+## in terms of model fit, the 3rd model has the best fit...
+
+ozone.diff.lm <- lm(formula =   O3.ppb ~ Monitor.closest + flow_level*Ozone.UDAQ.ppb + I(Ozone.UDAQ.ppb^2), data=study.summary.out, na.action = na.omit )
+summary(ozone.diff.lm)
+##
+
+
+####
+
+## Scatterplot UDAQ Ozone vs. Study Ozone (all homes)
+
+
+own.colors.4 <- brewer.pal(n = 9, name = "Dark2")[c(2:3)]
+display.brewer.all()
+
+ggplot(data=study.summary.out,aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
+  geom_point(aes(color=year))+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Monitor Ozone, ppb')+
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),
+               size=5)+
+  theme_bw()+
+  coord_cartesian(xlim=c(18,60),ylim=c(18,60))+
+  scale_color_manual(name = 'Year', values = own.colors.4)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'bottom')
+
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.scatter.png",width=6, height=4.5, units="in", dpi=300)
+
+## scatter plot by year
+ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
+  geom_point(aes(color=Monitor.closest))+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Monitor Ozone, ppb')+
+  facet_grid(.~year) +
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),
+             size=4)+
+  theme_bw()+
+  coord_cartesian(xlim=c(18,60),ylim=c(18,60))+
+  scale_color_manual(name = 'Closest Monitor', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'blank')
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.scatter.year.png",width=6, height=4.5, units="in", dpi=300)
+
+
+## Figure S-3, by flow rate and Monitor?
+
+names(study.summary.out)
+
+ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=Ozone.UDAQ.ppb, y=O3.ppb, color=Monitor.closest))+
+  geom_point()+
+  geom_abline(aes(intercept = 0, slope = 1))+
+  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Monitor Ozone, ppb')+
+  facet_grid(Monitor.closest~flow_level) +
+  stat_poly_line() +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*")),
+               size=4)+
+  theme_bw()+
+  coord_cartesian(xlim=c(18,60),ylim=c(18,60))+
+  scale_color_manual(name = 'Closest Monitor', values = own.colors.2)+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(legend.position = 'blank')
+
+ggsave(".//Graphics//Ozone//Ozone.UDAQ.Comparison.2.png",width=6, height=4.5, units="in", dpi=300)
+
+## The low flows are not systematically higher than the high flow
+## however, there is a significantly different relationship between the
+# low and high flow across different outdoor ozone days
+## I fit a model with interaction terms to see if the difference is significant...
+
+ozone.flow.lm <- lm(formula =   O3.ppb ~ flow_level*Ozone.UDAQ.ppb, data=study.summary.out, na.action = na.omit )
+summary(ozone.flow.lm)
+
+## note: the intercept is higher under the low flow, and the slope is significantly lower
+
+names(study.summary.out)
+
+### Calculate goodness of fit for each of the statistics 
+### grouped by flow level and 
+
+
+
+
+
+
+
+
+
+
+###### 
 
 own.colors <- brewer.pal(n = 9, name = "Set1")[c(8:9)]
 display.brewer.all()
@@ -36,29 +263,7 @@ ozone.summary <- summary %>%
 write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
 
-## Figure S-1 UDAQ Ozone vs. Study Ozone (all homes)
 
-own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
-
-
-ggplot(data=study.summary.out,aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
-  geom_point(aes(color=Monitor.closest))+
-  geom_abline(aes(intercept = 0, slope = 1))+
-  labs(y='Study Outdoor Ozone, ppb', x='UDAQ Monitor Ozone, ppb')+
-  stat_poly_line() +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*")),
-               size=5)+
-  theme_bw()+
-  coord_cartesian(xlim=c(18,50),ylim=c(18,50))+
-  scale_color_manual(name = 'Closest Monitor', values = own.colors.2)+
-  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
-        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
-        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
-        plot.margin= margin(t=1,r=1,b=1,l=1))+
-  theme(legend.position = 'bottom')
-
-ggsave(".//Graphics//Ozone//Ozone.UDAQ.Comparison.png",width=6, height=4.5, units="in", dpi=300)
 
 
 ## plot a summary plot by date
@@ -105,6 +310,7 @@ ggplot(data = ozone.summary,  aes(y = house.number.visit.date, x = O3.ppm*1000,f
         plot.margin= margin(t=-10,r=1,b=-1,l=-1))
 ggsave(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=6, height=8.5, units="in", dpi=900)
 
+## 
 
 
 

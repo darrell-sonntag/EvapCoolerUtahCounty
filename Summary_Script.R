@@ -443,12 +443,16 @@ sidepak.epa.out <- sidepak.epa.comparison %>%
   filter(!is.na(SidePak.ug.m3.avg))
 
 #Ozone Data and Plots
-studyozone<- read_excel(".\\Data\\Ozone\\Ozone Data_corrected.xlsx")%>%
-  select("House.Number","Visit","Location","Conc (mg/m3)","ppm","LOD ppm") %>%
+studyozone <- read_excel(".\\Data\\Ozone\\Ozone Data_altitude_corrected.xlsx") %>%
+  select("House.Number","Visit","Location","Ave Flow (L/min)","Total Volume (L)",
+ "Conc (mg/m3)","ppm (Provo)","LOD ppm (Provo)") %>%
   mutate(O3.Below.detection = grepl("<", `Conc (mg/m3)`)) %>%
-  rename(O3.ppm = ppm) %>%
+  rename(O3.ppm = "ppm (Provo)") %>%
   rename(O3.mg.m3 = "Conc (mg/m3)") %>%
-  rename(O3.LOD.ppm = "LOD ppm") 
+  rename(O3.LOD.ppm = "LOD ppm (Provo)") 
+
+## 
+names(studyozone)
 
 
 study.summary <- sidepak.epa.comparison %>%
@@ -461,7 +465,18 @@ study.summary.out <- study.summary  %>%
   filter(Location == "Out")    %>%
   mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
 
-summary(lm(Ozone.UDAQ.ppb~O3.ppb,study.summary.out, na.action = na.omit))
+## 
+ozone.lm <- lm(formula =  O3.ppb ~Ozone.UDAQ.ppb , data=study.summary.out, na.action = na.omit )
+ozone.lm.2 <- lm(formula =  Ozone.UDAQ.ppb ~ O3.ppb  , data=study.summary.out, na.action = na.omit )
+
+summary(ozone.lm)
+
+library(broom)
+
+ozone.coeff <- tidy(ozone.lm, conf.int = TRUE)
+ozone.coeff.2 <- tidy(ozone.lm.2, conf.int = TRUE)
+View(ozone.coeff)
+View(ozone.coeff.2)
 
 # Join TRH data
 # new summary table
