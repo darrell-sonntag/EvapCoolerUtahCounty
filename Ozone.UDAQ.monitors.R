@@ -35,7 +35,6 @@ sidepakfiles.all.same.time <- sidepakfiles.all %>%
 
 setwd("C:\\Users\\cello\\OneDrive\\문서\\Github\\EvapCoolerUtahCounty")
 
-### Supplement Figure S-2
 png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.png", width=6.5, height=7, units="in", res=300)
 ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int < 10)) + 
   geom_line(aes(x = Date, y = Concentration, color=Monitor))+
@@ -51,4 +50,32 @@ ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int < 10)) +
         plot.margin= margin(t=10,r=5,b=0,l=0))
 dev.off()
 
+png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.png", width=6.5, height=7, units="in", res=300)
+ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int > 9 & House.number.int < 20)) + 
+  geom_line(aes(x = Date, y = Concentration, color=Monitor))+
+  theme_bw()+
+  labs(x = expression(paste("Hour of the day")),
+       y = expression(paste("Ozone Concentrations (ppb)")))+
+  scale_color_brewer(palette = 'Set1')+
+  facet_wrap(.~Date, scales='free_y',ncol=4) +
+  theme(legend.position = 'bottom')+
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
+        plot.margin= margin(t=10,r=5,b=0,l=0))
+dev.off()
 
+png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.png", width=6.5, height=7, units="in", res=300)
+ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int > 19)) + 
+  geom_line(aes(x = Date, y = Concentration, color=Monitor))+
+  theme_bw()+
+  labs(x = expression(paste("Hour of the day")),
+       y = expression(paste("Ozone Concentrations (ppb)")))+
+  scale_color_brewer(palette = 'Set1')+
+  facet_wrap(.~Date, scales='free_y',ncol=4) +
+  theme(legend.position = 'bottom')+
+  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
+        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
+        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
+        plot.margin= margin(t=10,r=5,b=0,l=0))
+dev.off()
