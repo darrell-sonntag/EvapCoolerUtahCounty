@@ -290,15 +290,17 @@ Summer2022Hourly <- read.csv(".\\Data\\AirNowAPI\\2022 Summer Output.csv") %>%
 Winter2022Hourly <- read.csv(".\\Data\\AirNowAPI\\2022-2023 Winter PM Output.csv") %>%
   left_join(site.lat, by = "Latitude") %>%
   mutate(Date = paste(Date,":00",sep="")) %>%
-  mutate(Date=ymd_hms(Date))
+  mutate(Date=ymd_hms(Date)) %>%
+  mutate(Date=with_tz(Date,tzone="US/Mountain")) ### Changing UTC time to MDT time
 
 Summer2023Hourly <- read.csv(".\\Data\\AirNowAPI\\2023 Summer Output.csv") %>%
   left_join(site.lat, by = "Latitude") %>%
   mutate(Date = paste(Date,":00",sep="")) %>%
   mutate(Date=ymd_hms(Date))
 
-Summer2022.23Hourly <- bind_rows(Summer2022Hourly,Summer2023Hourly)
-
+Summer2022.23Hourly <- bind_rows(Summer2022Hourly,Summer2023Hourly) %>%
+  mutate(Date = as_datetime(Date)) %>% 
+  mutate(Date = Date - hours(6)) #### Changing UTC time to MDT time
 
 Summer2022.23.Hourly.visits <- inner_join(Summer2022.23Hourly,visitmaster.list.2,join_by("Monitor" == "Monitor.closest",
                                                                                          between(Date,start_date,end_date))) 

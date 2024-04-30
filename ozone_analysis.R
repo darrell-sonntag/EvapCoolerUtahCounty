@@ -31,8 +31,6 @@ ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=d
   theme(legend.position = 'bottom')
 
 ggsave(".//Graphics//Ozone//Ozone.UDAQ.Time.png",width=6, height=4.5, units="in", dpi=300)
-
-
 ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=diff, color=Monitor.closest))+
   geom_point()+
   labs(x='Date', y='Study Ozone - UDAQ Ozone, ppb')+
