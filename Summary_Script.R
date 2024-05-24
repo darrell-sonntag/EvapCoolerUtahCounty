@@ -29,8 +29,8 @@ acdata <- metadata %>%
   select("House.Number","Type of Air Conditioner") 
 
 
-list.txt = list.files(".\\Data\\SidePak_CSV", pattern = "*.txt", full.names = TRUE)
-list_2.txt = list.files(".\\Data\\SidePak_CSV_Corrected",full.names = T)
+list.txt = list.files(".\\Data\\SidePak_txt_1", pattern = "*.txt", full.names = TRUE)
+list_2.txt = list.files(".\\Data\\SidePak_txt_2",full.names = T)
 
 read_plus <- function(flnm) {
   read.table(flnm,header=T, skip=28, sep=",")[-1,] %>%
@@ -458,7 +458,7 @@ names(studyozone)
 
 
 study.summary <- sidepak.epa.comparison %>%
-  left_join(studyozone, by = c('House.Number','Visit','Location')) 
+  full_join(studyozone, by = c('House.Number','Visit','Location')) 
 
 
 write.csv(study.summary,".//Data//Processed Data//study.API.summary.csv",row.names = FALSE)
@@ -485,8 +485,10 @@ View(ozone.coeff.2)
 summary <- study.summary  %>%
   left_join(unique(TRH_Summary_Table), by = c("House.Number","Visit","Location" = "Sample.Location")) %>%
   left_join(acdata,by=c('House.Number')) %>%
-  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) 
-
+  mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) %>%
+  mutate(season = ifelse(month(first.day) >= 6 & month(first.day) <= 9,
+                         "Summer", "Winter")) %>% ## grab season for the Ozone samples with missing SidePak data 
+  filter(!is.na(Visit)) ## filter out the blanks
 
 
 #### 

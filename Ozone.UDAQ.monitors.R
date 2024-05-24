@@ -41,16 +41,24 @@ monitor_data <- UDAQ.Ozone.Arranged %>%
   drop_na()
 
 #Ozone Daily Average Box plot by monitor
+
+own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
+
 png(".//Graphics//Ozone//Ozone_Concentration.daily.png", width=6.5, height=7, units="in", res=300)
-ggplot(UDAQ.Ozone.daily, aes(x = factor(Year), y = Ozone.avg, fill = Monitor)) +
-  geom_boxplot() +
-  scale_fill_manual(values = c("Lindon" = "brown3", "Spanish Fork" = "cornflowerblue")) +
-  labs(title = "Ozone Concentration by Location",
-       x = "Year",
-       y = "Ozone Daily Average Concentration (ppb)") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 0.5), 
-        legend.position = 'bottom')
+ggplot(UDAQ.Ozone.daily, aes(x = Monitor, y = Ozone.avg, color = Monitor)) +
+  geom_boxplot(outlier.shape = NA)+
+  geom_jitter(width=0.05,shape=1)+
+  facet_wrap(~factor(Year))+
+  scale_color_manual(name = 'Measurement', values = own.colors.2)+
+  #scale_fill_manual(values = c("Lindon" = "brown3", "Spanish Fork" = "cornflowerblue")) +
+  labs(  x = "Year",
+       y = "Daily Ozone Average Concentration (ppb)") +
+  theme_bw()+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        strip.text = element_text(size=14),
+        plot.margin= margin(t=1,r=1,b=1,l=1),legend.position= 'bottom')
 dev.off()
 
 #2022 Box plot by monitor
@@ -101,70 +109,79 @@ ggplot(data = filter(Ozone_daily_wider)) +
         plot.margin= margin(t=10,r=5,b=0,l=0))
 dev.off()
 
-png(".//Graphics//Ozone//Ozone.UDAQ.daily.scatter.png", width=6.5, height=7, units="in", res=300)
+
+own.colors.4 <- brewer.pal(n = 9, name = "Dark2")[c(2:3)]
+
+png(".//Graphics//Ozone//Ozone.UDAQ.daily.scatter.png", width=6, height=5.5, units="in", res=300)
 ggplot(data = Ozone_daily_wider, aes(x = `Spanish Fork`, y = `Lindon`)) + 
-  geom_point(size=1) +  
-  geom_smooth(method = "lm", color = "cornflowerblue", se = FALSE) + 
+  geom_point(aes(color=factor(Year)))+ 
+  geom_smooth(method = "lm",  se = FALSE) + 
   geom_abline(aes(intercept = 0, slope = 1))+
   theme_bw()+
-  labs(x = "Ozone Average concentration in Spanish Fork (ppb)",
-       y = "Ozone Average Concentration in Lindon (ppb)") +
+  labs(x = "Daily ozone average concentration in Spanish Fork (ppb)",
+       y = "Daily ozone average concentration in Lindon (ppb)") +
+  scale_color_manual(name = 'Year', values = own.colors.4)+
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*")),size=4)+
-  scale_color_brewer(palette = 'Set1')+
+                                 after_stat(rr.label), sep = "*\", \"*")),size=6)+
   theme(legend.position = 'bottom')+
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
+        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
+        plot.margin= margin(t=1,r=1,b=1,l=1))
+dev.off()
+
+#plot UDAQ data corresponding to our ozone data collected timeline House 1 to 10
+
+own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
+
+png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.1to10.png", width=6.5, height=7, units="in", res=600)
+ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int < 11)) + 
+  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor),size=1)+
+  scale_color_manual(name = 'Monitor', values = own.colors.2)+
+  theme_bw()+
+  labs(x = expression(paste("Hour")),
+       y = expression(paste("Ozone Concentration (ppb)")))+
+  facet_wrap(.~first.day+house.number.visit, scales='free_y',ncol=4) +
+  theme(legend.position = 'bottom')+
+  scale_x_continuous(breaks=seq(0,40,8))+
   theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
-        axis.title = element_text(size = 10),plot.title = element_text(size = 10),
-        legend.title = element_text(size = 10),legend.text = element_text(size = 10),strip.text = element_text(size=9),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 11),
+        legend.title = element_text(size = 12),legend.text = element_text(size = 11),strip.text = element_text(size=11),
         plot.margin= margin(t=10,r=5,b=0,l=0))
 dev.off()
 
-#plot UDAQ data corresponding to our ozone data collected timeline House 1 to 9
-png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.1to9.png", width=6.5, height=7, units="in", res=300)
-ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int < 10)) + 
-  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor))+
+#plot UDAQ data corresponding to our ozone data collected timeline House 11 to 19
+png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.11to19.png", width=6.5, height=7, units="in", res=600)
+ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int > 10 & House.number.int < 20)) + 
+  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor),size=1)+
   theme_bw()+
-  labs(x = expression(paste("Hour of the day")),
-       y = expression(paste("Ozone Concentrations (ppb)")))+
-  scale_color_brewer(palette = 'Set1')+
+  scale_color_manual(name = 'Monitor', values = own.colors.2)+
+  labs(x = expression(paste("Hour")),
+       y = expression(paste("Ozone Concentration (ppb)")))+
   facet_wrap(.~first.day+house.number.visit, scales='free_y',ncol=4) +
   theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
-        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
-        plot.margin= margin(t=10,r=5,b=0,l=0))
-dev.off()
-
-#plot UDAQ data corresponding to our ozone data collected timeline House 10 to 19
-png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.10to19.png", width=6.5, height=7, units="in", res=300)
-ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int > 9 & House.number.int < 20)) + 
-  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor))+
-  theme_bw()+
-  labs(x = expression(paste("Hour of the day")),
-       y = expression(paste("Ozone Concentrations (ppb)")))+
-  scale_color_brewer(palette = 'Set1')+
-  facet_wrap(.~first.day+house.number.visit, scales='free_y',ncol=4) +
-  theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
-        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
+  scale_x_continuous(breaks=seq(0,40,8))+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 11),
+        legend.title = element_text(size = 12),legend.text = element_text(size = 11),strip.text = element_text(size=11),
         plot.margin= margin(t=10,r=5,b=0,l=0))
 dev.off()
 
 #plot UDAQ data corresponding to our ozone data collected timeline House from 20
-png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.20.png", width=6.5, height=7, units="in", res=300)
+png(".//Graphics//Ozone//Ozone.UDAQ.Hourly.20.png", width=6.5, height=7, units="in", res=600)
 ggplot(data = filter(UDAQ.Ozone.Arranged, House.number.int > 19)) + 
-  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor))+
+  geom_line(aes(x = duration.hours, y = Concentration, color=Monitor),size=1)+
   theme_bw()+
+  scale_color_manual(name = 'Monitor', values = own.colors.2)+
   labs(x = expression(paste("Hour of the day")),
-       y = expression(paste("Ozone Concentrations (ppb)")))+
-  scale_color_brewer(palette = 'Set1')+
-  facet_wrap(.~first.day+house.number.visit, scales='free_y',ncol=4) +
+       y = expression(paste("Ozone Concentration (ppb)")))+
+    facet_wrap(.~first.day+house.number.visit, scales='free_y',ncol=4) +
   theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=9),axis.text.x = element_text(size=9),
-        axis.title = element_text(size = 9),plot.title = element_text(size = 9),
-        legend.title = element_text(size = 9),legend.text = element_text(size = 9),strip.text = element_text(size=9),
+  scale_x_continuous(breaks=seq(0,40,8))+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 11),
+        legend.title = element_text(size = 12),legend.text = element_text(size = 11),strip.text = element_text(size=11),
         plot.margin= margin(t=10,r=5,b=0,l=0))
 dev.off()
 
