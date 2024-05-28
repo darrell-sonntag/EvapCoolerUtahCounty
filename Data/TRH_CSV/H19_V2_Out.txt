@@ -1,4 +1,4 @@
-H13_V2_In	Date	Time	Ch1_Value	Ch1_Unit	Ch2_Value	Ch2_unit
+Position	Date	Time	Ch1_Value	Ch1_Unit	Ch2_Value	Ch2_unit
 1	2/10/2023	17:31:16	19.1	       %RH	13.4	  DEGREE C
 2	2/10/2023	17:36:16	25.9	       %RH	9.5	  DEGREE C
 3	2/10/2023	17:41:16	29.4	       %RH	7.4	  DEGREE C

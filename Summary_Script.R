@@ -354,50 +354,25 @@ read_TRH <- function(flnm)
     mutate(date.time = mdy_hms(paste(Date,Time))) %>%
     mutate(filename = flnm) 
 }
-#Reads in the the TRH data  
-TRH.data.r <-
+#Reads in the the TRH data from 2022 
+TRH.data.2022 <-
   list_TRH.txt %>% 
   map_df(~read_TRH(.))
 
-#Reads in the the TRH data 
+#Reads in the the TRH data from 2023
 TRH.data.2023 <-
   list_TRH2023.txt %>% 
-  map_df(~read_TRH(.))
+  map_df(~read_TRH(.)) %>%
+  select(-X,-X.1,-X.2) ## get rid of some extra cols
 
-# H23_V1 replace one erroneous value 
-TRH.data.updated <- TRH.data.r %>%                               
+# H23_V1 replace one erroneous value in the 2022 data 
+TRH.data.2022.updated <- TRH.data.2022 %>%                               
   mutate(Ch1_Value = replace(Ch1_Value, Ch1_Value < 0, NA))  %>%
   mutate(Ch2_Value = replace(Ch2_Value, Ch2_Value == -39.4, NA))
 
 # combine together
-TRH.data <- bind_rows(TRH.data.updated,TRH.data.2023)
+TRH.data <- bind_rows(TRH.data.2022.updated,TRH.data.2023)
 
-#Creates a summary table of the TRH Data
-TRH_Summary_Table <- TRH.data %>%
-  group_by(filename) %>%
-  dplyr::summarize(
-    average.RH = mean(Ch1_Value,na.rm=T),
-    std.dev.RH = sd(Ch1_Value,na.rm=T),
-    min.RH = min(Ch1_Value,na.rm=T),
-    max.RH = max(Ch1_Value,na.rm=T),
-    average.temperature.Celsius = mean(Ch2_Value,na.rm=T),
-    std.dev.temperature = sd(Ch2_Value,na.rm=T),
-    min.temperature = min(Ch2_Value,na.rm=T),
-    max.temperature = max(Ch2_Value,na.rm=T),
-    time.hours = length(Ch1_Value)*5/60
-    
-  ) %>%
-  mutate(filename = word(filename,2,sep="/")) %>%
-  mutate(filename = substr(filename,1,nchar(filename)-4)) %>%
-  mutate(House.Number = word(filename,1,sep = "_")) %>%
-  mutate(Visit = word(filename,2,sep = "_")) %>%
-  mutate(Sample.Location = word(filename,3,sep = "_"))
-
-#### merge the AC data to the TRH.data
-TRH_Summary.wide <- TRH_Summary_Table %>%
-  left_join(acdata,by=c('House.Number'))
-
-write.csv(TRH_Summary.wide,".//Processed Data//TRH_Summary.csv",row.names = FALSE)
 
 ######
 TRH.data2 <- TRH.data %>%
@@ -406,7 +381,134 @@ TRH.data2 <- TRH.data %>%
   mutate(Time = lubridate::hms(Time)) %>%
   mutate(House.Number = word(filename,1,sep = "_")) %>%
   mutate(Visit = word(filename,2,sep = "_")) %>%
-  mutate(Sample.Location = word(word(filename,3,sep = "_"),1,sep = ".txt"))
+  mutate(Location = word(word(filename,3,sep = "_"),1,sep = ".txt")) %>%
+  rename(RH = Ch1_Value) %>% 
+  rename(Temp = Ch2_Value) %>%
+  filter(!is.na(Temp)) ## remove any blank NA's
+
+
+## THD.data2 was the data that we plotted...
+## merge TRH.data3 to the visitmaster.list.2
+
+names(visitmaster.list.2)
+names(TRH.data2)
+
+TRH.data3 <- inner_join(TRH.data2,visitmaster.list.2,
+                        join_by(House.Number,Visit,
+                        between(date.time,start_date,end_date))) %>%
+                        mutate(date.time = round_date(date.time,"5 minutes"))
+
+
+## read in Data from the BYU Eyring Science Center Weather Station for the summer visits
+BYU_TRH_2022 <- read_csv(".\\Data\\BYU Weather Station\\2022.csv") %>%
+                mutate(Date = dmy(Date)) ## I re-saved this in excel and it changed the date order
+
+BYU_TRH_2023 <- read_csv(".\\Data\\BYU Weather Station\\2023.csv") %>%
+                mutate(Date = mdy(Date)) 
+
+names(BYU_TRH)
+
+BYU_TRH <- bind_rows(BYU_TRH_2022,BYU_TRH_2023) %>%
+           mutate(date.time = ymd_hms(paste(Date,Time))) %>%
+           mutate(date.time = round_date(date.time,"5 minutes")) %>%
+           inner_join(visitmaster.list.2,
+                          join_by(between(date.time,start_date,end_date)))%>%
+          rename(Temp = 'Temperature (deg. C)', RH = 'Humidity (%)') %>%
+          mutate(Location = 'BYU') %>%
+          select('House.Number','Visit','first.day','date.time','Temp','RH','Location')
+
+
+TRH.data4 <- TRH.data3 %>%
+             bind_rows(BYU_TRH) %>%
+             mutate(house.number.visit = paste(House.Number,Visit,sep=" ")) %>%
+             mutate(House.number.int = as.integer(substring(House.Number, 2,3))) %>%
+            mutate(first.day = as_date(first.day)) %>%
+            mutate(Date = as_date(date.time)) %>%
+            mutate(Time = as_hms(date.time)) %>%
+            mutate(Year = lubridate::year(date.time)) %>%
+            mutate(pseudo.day = Date - first.day) %>%
+            mutate(pseudo.time = as.period(pseudo.day) + as.period(Time)) %>%
+            mutate(duration = as.duration(pseudo.time)) %>%
+            mutate(duration.hours = duration/3600) %>%                              
+            mutate(duration.hms = hms::hms(duration)) %>%
+            mutate(Location = factor(Location, levels = c('In','Out','BYU'),ordered = T)) %>%
+            mutate(season = ifelse(month(Date) >= 6 & month(Date) <= 9,'Summer','Winter'))  %>%
+            left_join(acdata, by= "House.Number") %>%
+            mutate(ac.type = ifelse(`Type of Air Conditioner`=='Central','Central',ifelse(`Type of Air Conditioner`=='Evaporative','Evap',NA))) 
+
+
+## graph the summer data in 'graph.temp.humidity.summer.R'
+
+## Create wide.out, where the BYU data is next to our measured data
+
+names(TRH.data4)
+
+TRH.out.wide <- TRH.data4 %>%
+                filter(Location %in% c('Out','BYU')) %>%
+                select('House.Number','Visit','house.number.visit','Location','date.time',
+                        'RH','Temp','season') %>%
+                pivot_wider(names_from = Location, values_from = c(Temp,RH)) 
+
+
+duplicates <-   TRH.data4 %>%
+  dplyr::group_by(House.Number, Visit, house.number.visit, date.time, Location) %>%
+  dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+  dplyr::filter(n > 1L) 
+
+
+duplicates.id <- duplicates %>%
+                 select(House.Number,Visit,Location) %>%
+                  unique()
+
+
+#
+View(duplicates.id)
+       
+names(TRH.out.wide) 
+
+TRH.out.qa <- TRH.out.wide %>%
+                    mutate(Temp_Out = ifelse(season == 'Summer',Temp_BYU,Temp_Out)) %>% # use the BYU outdoor temp data for all visits in the summer (If we wanted to we could add in the BYU data for the Winter in the future)
+                    mutate(RH_Out = ifelse(house.number.visit %in% c("H13 V1","H10 V1",
+                                            "H31 V1","H02 V4",
+                                            "H02 V4","H33 V1",
+                                            "H24 V1","H19 V3"),
+                                            RH_BYU,RH_Out)) %>% ## use the BYU outdoor RH for some of the visits with missing/incomplete data
+                  mutate(Location = 'Out') %>%
+                  rename(RH = RH_Out, Temp = Temp_Out) %>%
+                  select('House.Number','Visit','Location','house.number.visit','Location','date.time',
+                         'RH','Temp','season')
+    
+TRH.long.qa <- TRH.data4 %>%
+               filter(Location =='In') %>%
+               select('House.Number','Visit','Location','house.number.visit','Location','date.time',
+                       'RH','Temp','season') %>%
+               bind_rows(TRH.out.qa)
+
+
+names(TRH.data4)
+names(TRH.out.qa)
+
+#Creates a summary table of the TRH Data
+TRH_Summary_Table <- TRH.long.qa %>%
+  group_by(House.Number,Visit,house.number.visit,Location,season) %>%
+  dplyr::summarize(
+    average.RH = mean(RH,na.rm=T),
+    std.dev.RH = sd(RH,na.rm=T),
+    min.RH = min(RH,na.rm=T),
+    max.RH = max(RH,na.rm=T),
+    average.Temp = mean(Temp,na.rm=T),
+    std.dev.Temp = sd(Temp,na.rm=T),
+    min.Temp = min(Temp,na.rm=T),
+    max.Temp = max(Temp,na.rm=T),
+    time.hours = length(RH)*5/60) 
+    
+
+write.csv(TRH_Summary_Table,".//Processed Data//TRH_Summary.csv",row.names = FALSE)
+
+
+
+
+
 
 #### 
 #### 
@@ -483,7 +585,7 @@ View(ozone.coeff.2)
 # Join TRH data
 # new summary table
 summary <- study.summary  %>%
-  left_join(unique(TRH_Summary_Table), by = c("House.Number","Visit","Location" = "Sample.Location")) %>%
+  left_join(unique(TRH_Summary_Table), by = c("House.Number","Visit","Location")) %>%
   left_join(acdata,by=c('House.Number')) %>%
   mutate(O3.ppb = 1000 * as.numeric(O3.ppm)) %>%
   mutate(season = ifelse(month(first.day) >= 6 & month(first.day) <= 9,
@@ -537,10 +639,10 @@ sidepak.complete <- summary %>%
 
 sidepak.complete.io <- sidepak.complete %>%
   select(House.Number,Visit,Location,house.number.visit,house.number.visit.date,SidePak.ug.m3.avg,`Type of Air Conditioner`,ac.type,ac.season,
-         first.day,Monitor.closest,PM2.5.UDAQ.ug.m3,season,day.type,average.temperature.Celsius,
-         average.RH,min.temperature,max.temperature) %>%
-  pivot_wider(names_from = Location,values_from = c(SidePak.ug.m3.avg,average.temperature.Celsius,
-                                                    average.RH,min.temperature,max.temperature),names_sort = T) %>%
+         first.day,Monitor.closest,PM2.5.UDAQ.ug.m3,season,day.type,average.Temp,
+         average.RH,min.Temp,max.Temp) %>%
+  pivot_wider(names_from = Location,values_from = c(SidePak.ug.m3.avg,average.Temp,
+                                                    average.RH,min.Temp,max.Temp),names_sort = T) %>%
   mutate(`I/O` = SidePak.ug.m3.avg_In / SidePak.ug.m3.avg_Out) %>%
   mutate(Outdoor.SidePak.UDAQ.ratio = SidePak.ug.m3.avg_Out/PM2.5.UDAQ.ug.m3)  %>%
   mutate(Outdoor.SidePak.UDAQ.diff = SidePak.ug.m3.avg_Out -PM2.5.UDAQ.ug.m3 )
@@ -589,16 +691,16 @@ TRH_summary_Table_season <- sidepak.stats %>%
   group_by(ac.type,season) %>%
   filter(house.number.visit != c('H04 V2','H05 V2')) %>%
   dplyr::summarize(
-    count.In = sum(!is.na(average.temperature.Celsius_In)),
-    count.Out = sum(!is.na(average.temperature.Celsius_Out)),
-    average.temp.In = mean(average.temperature.Celsius_In,na.rm=T),
-    std.dev.temp.In = sd(average.temperature.Celsius_In,na.rm=T),
-    min.temp.In = min(average.temperature.Celsius_In,na.rm=T),
-    max.temp.In = max(average.temperature.Celsius_In,na.rm=T),
-    average.temp.Out = mean(average.temperature.Celsius_Out,na.rm=T),
-    std.dev.temp.Out = sd(average.temperature.Celsius_Out,na.rm=T),
-    min.temp.Out = min(average.temperature.Celsius_Out,na.rm=T),
-    max.temp.Out = max(average.temperature.Celsius_Out,na.rm=T),
+    count.In = sum(!is.na(average.Temp_In)),
+    count.Out = sum(!is.na(average.Temp_Out)),
+    average.temp.In = mean(average.Temp_In,na.rm=T),
+    std.dev.temp.In = sd(average.Temp_In,na.rm=T),
+    min.temp.In = min(average.Temp_In,na.rm=T),
+    max.temp.In = max(average.Temp_In,na.rm=T),
+    average.temp.Out = mean(average.Temp_Out,na.rm=T),
+    std.dev.temp.Out = sd(average.Temp_Out,na.rm=T),
+    min.temp.Out = min(average.Temp_Out,na.rm=T),
+    max.temp.Out = max(average.Temp_Out,na.rm=T),
     average.RH.In = mean(average.RH_In,na.rm=T),
     std.dev.RH.In = sd(average.RH_In,na.rm=T),
     min.RH.In = min(average.RH_In,na.rm=T),
@@ -607,7 +709,6 @@ TRH_summary_Table_season <- sidepak.stats %>%
     std.dev.RH.Out = sd(average.RH_Out,na.rm=T),
     min.RH.Out = min(average.RH_Out,na.rm=T),
     max.RH.Out = max(average.RH_Out,na.rm=T),
-    
   )
 
 write.csv(TRH_summary_Table_season, ".//data//Processed Data//TRH_summary_Table_season.csv",row.names = FALSE)
