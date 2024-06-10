@@ -414,10 +414,10 @@ ozone.wide <- ozone.summary %>%
 
 ozone.ave.house <- ozone.wide %>%
   group_by(House.Number,ac.type ) %>%
-  summarize(mean_house = mean(`I/O`,na.rm=T))
+  summarize(io.house = mean(`I/O`,na.rm=T))
 
 
-levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$mean_house)]
+levels.house <- ozone.ave.house$House.Number[order(ozone.ave.house$io.house)]
 levels.house
 
 ## update order of house in ozone.wide according to the levels of the house
@@ -810,7 +810,9 @@ names(ozone.wide)
 ozone.wide.qa <- ozone.wide %>%
                  filter(!(house.number.visit 
                           %in% c('H02 V1','H03 V1','H05 V1','H08 V1','H09 V1',
-                                              'H10 V1','H16 V1')))
+                                              'H10 V1','H16 V1'))) %>% ## remove the low flow from multiple visits
+                  filter(!(house.number.visit 
+                     %in% c('H29 V1','H29 V2','H27 V2'))) ## remove the suspect EC homes
 
 ## label each point above or below the detection limit
 
@@ -822,9 +824,12 @@ LOD <- ozone.wide.qa %>%
 
 ## Calculate means of each home
 
+names(ozone.wide.qa)
+
 ozone.ave.house.qa <- ozone.wide.qa %>%
   group_by(House.Number,ac.type ) %>%
-  summarize(mean_house = mean(`I/O`,na.rm=T)) %>%
+  summarize(io.house = mean(`I/O`,na.rm=T),
+            indoor.O3.house =  mean(ozone.max_In,na.rm=T)*1000) %>%
   left_join(LOD,by='House.Number') 
 
 names(ozone.ave.house.qa)
@@ -836,7 +841,7 @@ display.brewer.all()
 
 ## Figure X
 ## boxplot I/O by house
-ggplot(data=ozone.ave.house.qa,aes(x=ac.type, y=mean_house, color=ac.type))+
+ggplot(data=ozone.ave.house.qa,aes(x=ac.type, y=io.house, color=ac.type))+
   geom_boxplot(outlier.shape = NA)+
   geom_jitter(width=0.05,size=2, aes(shape = O3.Below.detection_In))+
   labs(y='I/O',x='')+
@@ -860,9 +865,9 @@ ggsave(".//Graphics//Ozone//I.O.house.boxplot.png",width=6, height=4, units="in"
 
 ozone.ave.type.2 <- ozone.ave.house.qa %>%
   group_by(ac.type) %>%
-  summarize(mean = mean(mean_house),
-            sd = sd(mean_house),
-            n = sum(!is.na(mean_house))) %>%
+  summarize(mean = mean(io.house),
+            sd = sd(io.house),
+            n = sum(!is.na(io.house))) %>%
   mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
   mutate(bound = tcrit*sd/sqrt(n)) %>%
   mutate(lower.95 = mean-bound) %>%
@@ -870,9 +875,6 @@ ozone.ave.type.2 <- ozone.ave.house.qa %>%
 
 
 write_csv(ozone.ave.type.2,'.//Processed Data//mean.i.o.confidence.csv')
-
-
-## plot mean with 95% CI
 
 
 
@@ -890,3 +892,18 @@ ggplot(data=ozone.ave.type.2,aes(x=ac.type, y= mean, fill=ac.type))+
   theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=12),
         axis.title = element_text(size = 14))
 dev.off()
+
+## Calculate mean indoor with 95% CI
+
+ozone.ave.type.indoor <- ozone.ave.house.qa %>%
+  group_by(ac.type) %>%
+  summarize(mean = mean(indoor.O3.house),
+            sd = sd(indoor.O3.house),
+            n = sum(!is.na(indoor.O3.house))) %>%
+  mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
+  mutate(bound = tcrit*sd/sqrt(n)) %>%
+  mutate(lower.95 = mean-bound) %>%
+  mutate(upper.95 = mean+bound ) 
+
+
+write_csv(ozone.ave.type.indoor,'.//Processed Data//mean.indoor.confidence.csv')
