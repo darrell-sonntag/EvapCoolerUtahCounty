@@ -401,10 +401,19 @@ TRH.data3 <- inner_join(TRH.data2,visitmaster.list.2,
 
 ## read in Data from the BYU Eyring Science Center Weather Station for the summer visits
 BYU_TRH_2022 <- read_csv(".\\Data\\BYU Weather Station\\2022.csv") %>%
-                mutate(Date = dmy(Date)) ## I re-saved this in excel and it changed the date order
-
+                mutate(Date = dmy(Date))  ## I re-saved this in excel and it changed the date order from mdy to dmy
+                ## I updated updated the times at the following dates and times to provide 5 minute increments 
+                # (at these times the BYU data had repeat values and missed other nearby 5 minute periods) 
+                # 2022-08-09 22:43:10,
+                # 2022-07-13 00:25:00
+                # 2023-06-13 22:45:00
+                # 2023-08-08 22:30:00
+                # 2023-08-26 17:40:00
+                # 2023-09-12 17:55:00
+                # See join at utah_county_ozone)8hr_24hrs.R for how I found these...
+  
 BYU_TRH_2023 <- read_csv(".\\Data\\BYU Weather Station\\2023.csv") %>%
-                mutate(Date = mdy(Date)) 
+                mutate(Date = dmy(Date)) 
 
 names(BYU_TRH)
 

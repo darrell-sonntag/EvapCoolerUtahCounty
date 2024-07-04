@@ -34,6 +34,8 @@ ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=d
 
 ggsave(".//Graphics//Ozone//Ozone.UDAQ.Time.png",width=6, height=4.5, units="in", dpi=300)
 
+own.colors.2
+
 ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=diff, color=Monitor.closest))+
   geom_point()+
   labs(x='Date', y='Study Ozone - UDAQ Ozone, ppb')+
@@ -310,7 +312,7 @@ write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
 
 ## plot a summary plot by date
-## Figure 2
+## Figure 3
 
 ozone.summary$house.number.visit <- factor(ozone.summary$house.number.visit,levels=rev(sort(unique(ozone.summary$house.number.visit))),ordered=T)
 ozone.summary$house.number.visit.date <- factor(ozone.summary$house.number.visit.date,levels=rev(sort(unique(ozone.summary$house.number.visit.date))),ordered=T)
@@ -339,8 +341,10 @@ own.colors <- brewer.pal(n = 9, name = "Set1")[c(8:9)]
 
 ###
 
+names(ozone.summary)
 
-ggplot(data = ozone.summary,  aes(y = house.number.visit.date, x = O3.ppb,fill=Location))+  
+
+ggplot(data = filter(ozone.summary,!is.na(O3.LOD.ppb)),  aes(y = house.number.visit.date, x = O3.ppb,fill=Location))+  
   geom_col(position=position_dodge2(preserve='single'),width=0.7,color='white')+
   geom_point(aes(x=O3.LOD.ppb,group=Location),color='grey',position=position_dodge(width=0.7)) +
   facet_grid(ac.type~.,scales='free_y' ,space='free') +
@@ -352,8 +356,9 @@ ggplot(data = ozone.summary,  aes(y = house.number.visit.date, x = O3.ppb,fill=L
   guides(fill=guide_legend(reverse=TRUE))+
   geom_text(data = ann_text_LOD,size = 4,color='grey28',
             aes(y = house.number.visit.date, x = O3.ppm*1000, label=lab),nudge_y = 0,vjust=0,hjust = 0)+
+  scale_x_continuous(breaks = seq(0,50,10))+
   theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=16),
+  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
         axis.title = element_text(size = 16),plot.title = element_text(size = 20),
         legend.title = element_text(size = 14),legend.text = element_text(size = 12),
         strip.text = element_text(size=14),
