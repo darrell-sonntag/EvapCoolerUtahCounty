@@ -59,6 +59,12 @@ ozone.8hr.temp.lindon <- ozone.8hr.temp %>%
 ozone.8hr.temp.sf <- ozone.8hr.temp %>%
   filter(`Site Name` == 'Spanish Fork')
 
+
+
+
+
+
+
 ### Create some plots and arrange using patchwork
 
 ## https://www.andrewheiss.com/blog/2022/06/23/long-labels-ggplot/#option-f-automatically-add-line-breaks
@@ -148,3 +154,31 @@ c1 <- ggplot(ozone.8hr.temp.sf, aes(x=Date,y=ozone.8hr.ppb,color=`Site Name`))+
 a1+b1+c1+ plot_layout(ncol = 1)
 ggsave(".//Graphics//Ozone//utah.county.temp.ozone.aqi.png", width=6, height=8.5, units="in", dpi=900)
 
+
+### what's the variation in the 8 hr summer ozone?
+
+View(ozone.8hr.temp)
+
+
+str(ozone.8hr.temp)
+
+ozone.8hr.temp.summer <- ozone.8hr.temp %>%
+                          mutate(month= month(Date)) %>%
+                          mutate(year = year(Date)) %>%
+                          filter(month %in% c(6:9)) ## filter all the data beyond July 12th. Because I'm missing the June - July 12th data in 2022.
+
+names(ozone.8hr.temp.summer)
+
+## summarize
+
+ozone.8hr.temp.summer.summary <- ozone.8hr.temp.summer %>%
+                                  group_by(`Site Name`) %>%
+                                  summarize(mean = mean(ozone.8hr.ppb,na.rm=T),
+                                            sd = sd(ozone.8hr.ppb,na.rm=T),
+                                            min = min(ozone.8hr.ppb,na.rm=T),
+                                            max = max(ozone.8hr.ppb,na.rm=T)) %>%
+                                 mutate(max.min = max/min,cv = sd/mean) 
+                                 
+
+View(ozone.8hr.temp.summer.summary)
+                         

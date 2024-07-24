@@ -881,6 +881,22 @@ ozone.ave.type.2 <- ozone.ave.house.qa %>%
 
 write_csv(ozone.ave.type.2,'.//Processed Data//mean.i.o.confidence.csv')
 
+### two-sided t-test
+
+t.test.ozone <- t.test(io.house~
+                         ac.type,
+                       data=ozone.ave.house.qa,var.equal=F)
+
+t.test.ozone
+t.test.ozone$p.value
+t.test.ozone$conf.int[1]
+t.test.ozone$conf.int[2]
+
+library(broom)
+glance(t.test.ozone)
+
+write_csv(glance(t.test.ozone),'.//Processed Data//t.test.io.ozone.csv')
+
 
 
 png(".//Graphics//Ozone//O3.IO.ratio.AC.type.png", width=4.5, height=4, units="in", res=300)
@@ -912,3 +928,16 @@ ozone.ave.type.indoor <- ozone.ave.house.qa %>%
 
 
 write_csv(ozone.ave.type.indoor,'.//Processed Data//mean.indoor.confidence.csv')
+
+### two-sided t-test
+
+t.test.ozone.indoor <- t.test(indoor.O3.house~
+                         ac.type,
+                       data=ozone.ave.house.qa,var.equal=F)
+
+t.test.ozone.indoor
+
+glance(t.test.ozone.indoor)
+
+write_csv(glance(t.test.ozone.indoor),'.//Processed Data//t.test.indoor.ozone.csv')
+
