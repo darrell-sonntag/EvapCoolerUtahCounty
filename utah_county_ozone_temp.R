@@ -130,7 +130,7 @@ b1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=ozone.8hr.ppb))+
   scale_y_continuous(breaks=seq(0,80,20),lim=c(0,88))+
   labs(x='', y='Daily Maximum\n 8-hour Ozone\nConcentration, ppb', title = 'Lindon')+
   theme(axis.text.y = element_text(size=12),axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 12),plot.title = element_text(size = 14,,hjust = 0.5,vjust=0))
+        axis.title = element_text(size = 12),plot.title = element_text(size = 14,hjust = 0.5,vjust=0))
 
 b1
 

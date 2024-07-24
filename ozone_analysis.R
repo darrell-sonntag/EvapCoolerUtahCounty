@@ -17,7 +17,7 @@ study.summary.out <- study.summary.out %>%
   mutate(norm_bias = diff/Ozone.UDAQ.ppb) %>%
   mutate(year = as.character(year(first.day)))
 
-## Figure S-1 . Plot ozone diff by time-- is that important?
+## Figure S-10 . Plot ozone diff by time-- is that important?
 
 ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=as_date(first.day), y=diff, color=flow_level))+
   geom_point()+
@@ -73,7 +73,7 @@ own.colors.2 <- brewer.pal(n = 9, name = "Set1")[c(3:9)]
 
 ?geom_boxplot
 
-## Figure S-1
+## Figure S-8
 ggplot(data=ozone.udaq.compare,aes(x=O3_measure, y=O3_ppb, color=O3_measure))+
   geom_boxplot(outlier.shape = NA)+
   geom_jitter(width=0.05,shape=1)+
@@ -95,7 +95,7 @@ ggsave(".//Graphics//Ozone//Ozone.UDAQ.boxplot.png",width=6, height=6, units="in
 
 ## Look at the diff box plots....
 
-## Figure S-2
+## Figure S-9
 
 ggplot(data=filter(study.summary.out,!is.na(diff)),aes(y=diff,x =as.character(year), color=Monitor.closest))+
   geom_boxplot(outlier.shape = NA)+
@@ -166,6 +166,7 @@ ggplot(data=study.summary.out,aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
 ggsave(".//Graphics//Ozone//Ozone.UDAQ.scatter.png",width=6, height=4.5, units="in", dpi=300)
 
 ## scatter plot by year
+##  Figure S-11
 ggplot(data=filter(study.summary.out,!is.na(diff)),aes(x=Ozone.UDAQ.ppb, y=O3.ppb))+
   geom_point(aes(color=Monitor.closest))+
   geom_abline(aes(intercept = 0, slope = 1))+
@@ -349,21 +350,22 @@ ggplot(data = filter(ozone.summary,!is.na(O3.LOD.ppb)),  aes(y = house.number.vi
   geom_point(aes(x=O3.LOD.ppb,group=Location),color='grey',position=position_dodge(width=0.7)) +
   facet_grid(ac.type~.,scales='free_y' ,space='free') +
   scale_fill_brewer(palette = 'Set1')+
-  labs(x ="Ozone concentration, ppb",title='',y='')+
+  labs(x =expression(paste("O"[3]," concentration, ppb")),title='',y='')+
+  #labs(x='',y=expression(paste("Daily Maximum\n 8-hour O"[3],"\nConcentration, ppb")),title = 'Lindon')+
   #coord_cartesian(xlim = c(0, 110)) +
   #scale_x_continuous(breaks=seq(0,110,10))+
   theme_bw()+
   guides(fill=guide_legend(reverse=TRUE))+
-  geom_text(data = ann_text_LOD,size = 4,color='grey28',
+  geom_text(data = ann_text_LOD,size = 3.5,color='grey28',
             aes(y = house.number.visit.date, x = O3.ppm*1000, label=lab),nudge_y = 0,vjust=0,hjust = 0)+
   scale_x_continuous(breaks = seq(0,50,10))+
   theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
-        axis.title = element_text(size = 16),plot.title = element_text(size = 20),
-        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
-        strip.text = element_text(size=14),
+  theme(axis.text.y = element_text(size=12),axis.text.x = element_text(size=12),
+        axis.title = element_text(size = 14),plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),legend.text = element_text(size = 12),
+        strip.text = element_text(size=12),
         plot.margin= margin(t=-10,r=1,b=-1,l=-1))
-ggsave(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=6, height=8.5, units="in", dpi=900)
+ggsave(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=5.2, height=7, units="in", dpi=900)
 
 ## 
 
@@ -483,7 +485,7 @@ write_csv(ozone.supp.2,".//Processed Data//ozone.supp.table.temp.rh.csv")
 ozone.wide.graph <- filter(ozone.wide,!is.na(`I/O`))
 
 
-### Figure 3
+### Figure 
 ## I/O sorted from lowest to highest
 
 ?geom_jitter
@@ -504,7 +506,7 @@ ggplot(data = ozone.wide,aes(x = House.Number, y = `I/O`,fill=House.Number)) +
 
 ggsave(".//Graphics//Ozone//ozone.io.png", width=6.5, height=4, units="in", dpi=300)
 
-##
+## Figure 5
 
 names(ozone.wide)
 class(ozone.wide$O3.Below.detection_In)
@@ -531,6 +533,7 @@ ggsave(".//Graphics//Ozone//ozone.io.flow.png", width=6.5, height=4, units="in",
 
 
 ## wildfire smoke
+## Figure S-17
 
 
 ggplot(data = filter(ozone.wide,!is.na(`I/O`)),aes(x = House.Number, y = `I/O`,
@@ -556,6 +559,7 @@ ggsave(".//Graphics//Ozone//ozone.io.wildire.png", width=6.5, height=4, units="i
 ## I/O vs. other factors
 
 ## Outdoor temperature
+## Figure S-18
 
 ggplot(data=ozone.wide.graph,aes(x=average.Temp_Out, y=`I/O`))+
   geom_point(aes(color=flow_level_In, shape = O3.Below.detection_In),size=2)+
@@ -602,6 +606,7 @@ ggsave(".//Graphics//Ozone//O3.IO.vs.RH.png", width=6.5, height=4, units="in", d
 
 names(ozone.wide)
 
+## Figure 7
 ## I/O vs. UDAQ ozone
 
 ggplot(data=ozone.wide.graph,aes(x=Ozone.UDAQ.ppb, y=`I/O`))+
@@ -611,16 +616,17 @@ ggplot(data=ozone.wide.graph,aes(x=Ozone.UDAQ.ppb, y=`I/O`))+
   facet_grid(.~ac.type) +
   theme(legend.position = 'bottom')+
   expand_limits(y=0)+
-  labs(x = "Daily Average Ozone Concentration (ppb) at Closest UDAQ Monitor")+
+  #labs(x = "Daily Average Ozone Concentration (ppb) at Closest UDAQ Monitor")+
+  labs(x = expression(paste("Daily Average O"[3]," Concentration (ppb) at Closest UDAQ Monitor"))) +
   scale_color_manual(name = 'Flow rate', values = own.colors.2[c(6,7)])+
   scale_shape_manual(name = 'Below LOD',values = c(21,24))+
   scale_y_continuous(breaks = seq(0,1,.2))+
   #scale_x_continuous(breaks = seq(-16,0,4))+
-  theme(axis.text.y = element_text(size=14),
+  theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
-        strip.text = element_text(size=14),legend.text = element_text(size = 12))
-ggsave(".//Graphics//Ozone//O3.IO.vs.Ozone.png", width=6.5, height=4, units="in", dpi=600)
+        axis.title = element_text(size = 12),plot.title = element_text(size = 20),
+        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+ggsave(".//Graphics//Ozone//O3.IO.vs.Ozone.png", width=5.3, height=3.5, units="in", dpi=600)
 
 ## I/O vs. study outdoor ozone
 
@@ -664,6 +670,7 @@ ggplot(data=ozone.wide,aes(x=Temp_diff, y=`I/O`))+
 dev.off()
 
 ### I/O vs. Temp_diff_max
+## Figure S-20
 
 ggplot(data=ozone.wide.graph,aes(x=Temp_diff_max, y=`I/O`))+
   geom_point(aes(color=flow_level_In, shape = O3.Below.detection_In),size=2)+
@@ -672,7 +679,7 @@ ggplot(data=ozone.wide.graph,aes(x=Temp_diff_max, y=`I/O`))+
   facet_grid(.~ac.type) +
   theme(legend.position = 'bottom')+
   expand_limits(y=0)+
-  labs(x = 'Difference in Maximum Daily Temperature (Indoor - Outdoor)')+
+  labs(x = 'Difference in Daily Maximum Temperature (Indoor - Outdoor)')+
   scale_color_manual(name = 'Flow rate', values = own.colors.2[c(6,7)])+
   scale_shape_manual(name = 'Below LOD',values = c(21,24))+
   scale_y_continuous(breaks = seq(0,1,.2))+
@@ -706,7 +713,7 @@ ggplot(data=ozone.wide,aes(x=RH_diff, y=`I/O`))+
         strip.text = element_text(size=10))
 dev.off()
 
-## Figure 3 min (loess)
+## min (loess)
 
 ggplot(data=ozone.wide.graph,aes(x=RH_diff_min, y=`I/O`))+
   geom_point(aes(color=flow_level_In, shape = O3.Below.detection_In),size=2)+
@@ -726,28 +733,28 @@ ggplot(data=ozone.wide.graph,aes(x=RH_diff_min, y=`I/O`))+
         strip.text = element_text(size=14),legend.text = element_text(size = 12))
 ggsave(".//Graphics//Ozone//O3.IO.vs.RH.diff.min.png", width=6.5, height=4, units="in", dpi=600)
 
-## Figure 3 min (linear)
+## Figure 6 min (linear)
 
 ggplot(data=ozone.wide.graph,aes(x=RH_diff_min, y=`I/O`))+
   geom_point(aes(color=flow_level_In, shape = O3.Below.detection_In),size=2)+
   geom_smooth(method = "lm",  se = FALSE) + 
   stat_poly_line() +
   stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*")),size=4)+
+                                 after_stat(rr.label), sep = "*\", \"*")),size=3)+
   theme_bw()+
   facet_grid(.~ac.type) +
   theme(legend.position = 'bottom')+
   expand_limits(y=0)+
-  labs(x = 'Difference in Minimum Relative Humidity (Indoor - Outdoor)')+
+  labs(x = 'Difference in Daily Minimum Relative Humidity (Indoor - Outdoor)')+
   scale_color_manual(name = 'Flow rate', values = own.colors.2[c(6,7)])+
   scale_shape_manual(name = 'Below LOD',values = c(21,24))+
   scale_y_continuous(breaks = seq(0,1,.2))+
   scale_x_continuous(breaks = seq(-20,40,20))+
-  theme(axis.text.y = element_text(size=14),
+  theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
-        strip.text = element_text(size=14),legend.text = element_text(size = 12))
-ggsave(".//Graphics//Ozone//O3.IO.vs.RH.diff.min.lin.png", width=6.5, height=4, units="in", dpi=600)
+        axis.title = element_text(size = 12),plot.title = element_text(size = 20),
+        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+ggsave(".//Graphics//Ozone//O3.IO.vs.RH.diff.min.lin.png", width=5.3, height=3.5, units="in", dpi=600)
 
 
 
@@ -756,22 +763,24 @@ ggsave(".//Graphics//Ozone//O3.IO.vs.RH.diff.min.lin.png", width=6.5, height=4, 
 ## does that mean there is a non-linear trend between indoor and outdoor concentrations?
 names(ozone.wide)
 
+# Figure 4
 ## Indoor vs. Outdoor ozone
 
 ggplot(data=ozone.wide.graph,aes(x=ozone.max_Out*1000, y=ozone.max_In*1000))+
   geom_point(aes(color=flow_level_In, shape = O3.Below.detection_In),size=2)+
   geom_smooth(color = "black",method='loess',span=2) +
-  labs(x = "Outdoor Ozone Concentration, ppb", y="Indoor Ozone Concentration, ppb")+
+  labs(x = expression(paste("Outdoor O"[3]," concentration, ppb")),
+       y = expression(paste("Indoor O"[3]," concentration, ppb"))) +
   scale_color_manual(name = 'Flow rate', values = own.colors.2[c(6,7)])+
   scale_shape_manual(name = 'Below LOD',values = c(21,24))+
   theme_bw()+
   facet_grid(.~ac.type) +
   theme(legend.position = 'bottom')+
-  theme(axis.text.y = element_text(size=14),
+  theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
-        strip.text = element_text(size=14),legend.text = element_text(size = 12))
-ggsave(".//Graphics//Ozone//Indoor.Outdoor.png", width=6.5, height=4, units="in", dpi=600)
+        axis.title = element_text(size = 12),plot.title = element_text(size = 20),
+        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+ggsave(".//Graphics//Ozone//Indoor.Outdoor.png", width=5.3, height=3.5, units="in", dpi=600)
 
 
 ## indoor vs. Outdoor UDAQ ozone
@@ -844,7 +853,7 @@ names(ozone.ave.house.qa)
 own.colors.3 <- brewer.pal(n = 9, name = "Paired")[c(7:8)]
 display.brewer.all()
 
-## Figure X
+## Figure 8
 ## boxplot I/O by house
 ggplot(data=ozone.ave.house.qa,aes(x=ac.type, y=io.house, color=ac.type))+
   geom_boxplot(outlier.shape = NA)+
@@ -898,6 +907,7 @@ glance(t.test.ozone)
 write_csv(glance(t.test.ozone),'.//Processed Data//t.test.io.ozone.csv')
 
 
+## Figure 9
 
 png(".//Graphics//Ozone//O3.IO.ratio.AC.type.png", width=4.5, height=4, units="in", res=300)
 ggplot(data=ozone.ave.type.2,aes(x=ac.type, y= mean, fill=ac.type))+
