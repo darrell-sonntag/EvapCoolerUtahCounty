@@ -731,6 +731,19 @@ own.colors <- brewer.pal(n = 8, name = "Set1")[c(3:8)]
 
 levels(sidepak.stats$house.number.visit)
 
+### Calculate indoor PM2.5 based on reference monitor data ###
+
+names(sidepak.stats)
+
+indoor.air.pm2.5 <- sidepak.stats %>%
+                    mutate(indoor.pm2.5 = `I/O`*PM2.5.UDAQ.ug.m3) %>%
+                    filter(season == 'Summer') %>%
+                    group_by(ac.type) %>%
+                    summarize(mean = mean(indoor.pm2.5), sd= sd(indoor.pm2.5))
+
+write.csv(TRH_summary_Table_season, ".//data//Processed Data//TRH_summary_Table_season.csv",row.names = FALSE)
+
+
 ############################
 ##### linear regression #####
 ############################

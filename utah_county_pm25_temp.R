@@ -83,3 +83,16 @@ pm1+pm2+ plot_layout(ncol = 1)
 ggsave(".//Graphics//SidePak//utah.county.temp.pm25.aqi.png", width=6.5, height=6, units="in", dpi=900)
 
 ?scale_x_date
+
+
+## Calculate the average PM2.5 over the past 3 summers in Lindon
+
+names(epa.pm25.sf)
+
+epa.pm25.sf.summer <- epa.pm25.sf %>%
+                      mutate(month = month(Date)) %>%
+                      filter(month %in% 6:9) %>%
+                      summarize(mean = mean(`Daily Mean PM2.5 Concentration`),n = sum(!is.na(`Daily Mean PM2.5 Concentration`)))
+
+
+
