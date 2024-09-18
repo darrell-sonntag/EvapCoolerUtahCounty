@@ -681,6 +681,11 @@ sidepak.stats <- left_join(sidepak.complete.io,r.2.merge,by=c('House.Number','Vi
 ## That is causing a high indoor/outdoor concentration 
 ## Also remove other winter days, 'H07 V2','H10 V2' that had unrealistically low outdoor concentrations
 
+
+###
+write.csv(sidepak.stats,".//Processed Data//sidepak.stats.csv",row.names = FALSE)
+
+
 unique(sidepak.stats$ac.type)
 
 ## House and visit counts

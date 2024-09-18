@@ -311,7 +311,6 @@ ozone.summary <- summary %>%
 write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
 
-
 ## plot a summary plot by date
 ## Figure 3
 
@@ -476,6 +475,21 @@ ozone.supp.2 <- ozone.wide %>%
   mutate(across(3:15,round,2))
 
 write_csv(ozone.supp.2,".//Processed Data//ozone.supp.table.temp.rh.csv")
+
+### export summary for Dawson Pitcher
+
+names(sidepak.stats) ## this is wide format has I/O
+names(ozone.wide)
+
+EvapCooler.summary <- sidepak.stats %>%
+    full_join(ozone.wide,by=c("House.Number", "Visit","house.number.visit",  "house.number.visit.date",
+                                 "first.day", "Type of Air Conditioner", "ac.type" ,"season","Monitor.closest",
+                                 "average.Temp_Out","average.RH_In",  "average.RH_Out" ,  "min.Temp_In" , 
+                                 "min.Temp_Out"  , "max.Temp_In" , "max.Temp_Out"))
+
+
+write_csv(EvapCooler.summary,".//Processed Data//EvapCooler.summary.csv")
+
 
 
 
