@@ -108,12 +108,15 @@ ggsave(".//Graphics//Ozone//utah.county.temp.ozone.png", width=6, height=8.5, un
 
 a1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=MaxTempC))+
   geom_line(color='darkgrey',size=1) +
-  labs(x = '', y= expression("Daily Maximum\n Temperature,"~degree*C),title='Brigham Young University, Provo')+
+  labs(x = '', y= expression("Daily Maximum \nTemperature,"~degree*C),title='Brigham Young University, Provo')+
   theme_bw() +
-  theme(axis.text.y = element_text(size=12),axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 12),plot.title = element_text(size = 14,,hjust = 0.5,vjust=0))
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title.y = element_text(size = 10,vjust=0),plot.title = element_text(size = 12,hjust = 0.5,vjust=0),
+        plot.margin = margin(t=0,r=1,b=0,l=12))
 
-## grabed colors from https://document.airnow.gov/technical-assistance-document-for-the-reporting-of-daily-air-quailty.pdf
+a1
+
+## grabbed colors from https://document.airnow.gov/technical-assistance-document-for-the-reporting-of-daily-air-quailty.pdf
 ## found the corresponding hexidecmal code here: https://htmlcolorcodes.com/
 
 b1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=ozone.8hr.ppb))+
@@ -128,9 +131,11 @@ b1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=ozone.8hr.ppb))+
   geom_line(color="darkgrey",size=1) +
   theme_bw()+
   scale_y_continuous(breaks=seq(0,80,20),lim=c(0,88))+
-  labs(x='', y='Daily Maximum\n 8-hour Ozone\nConcentration, ppb', title = 'Lindon')+
-  theme(axis.text.y = element_text(size=12),axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 12),plot.title = element_text(size = 14,hjust = 0.5,vjust=0))
+  labs(x='', y='Daily Maximum 8-hour \nOzone Concentration, ppb', title = 'Lindon')+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title.y = element_text(size = 10,vjust=2),plot.title = element_text(size = 12,hjust = 0.5,vjust=0),
+        plot.margin = margin(t=0,r=1,b=0,l=12))
+
 
 b1
 
@@ -147,12 +152,16 @@ c1 <- ggplot(ozone.8hr.temp.sf, aes(x=Date,y=ozone.8hr.ppb,color=`Site Name`))+
   geom_line(color =  "darkgrey",size=1) +
   theme_bw()+
   scale_y_continuous(breaks=seq(0,80,20),lim=c(0,88))+
-  labs(x='', y='Daily Maximum\n 8-hour Ozone\nConcentration, ppb',title = 'Spanish Fork')+
-  theme(axis.text.y = element_text(size=12),axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 12),plot.title = element_text(size = 14,,hjust = 0.5,vjust=0))
+  labs(x='', y='Daily Maximum 8-hour \nOzone Concentration, ppb',title = 'Spanish Fork')+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title.y = element_text(size = 10,vjust=2),plot.title = element_text(size = 12,hjust = 0.5,vjust=0),
+        plot.margin = margin(t=0,r=1,b=0,l=12))
 
-a1+b1+c1+ plot_layout(ncol = 1)
-ggsave(".//Graphics//Ozone//utah.county.temp.ozone.aqi.png", width=6, height=8.5, units="in", dpi=900)
+
+c1
+
+a1+b1+c1+ plot_layout(ncol = 1, axes='collect')
+ggsave(".//Graphics//Ozone//utah.county.temp.ozone.aqi.png", width=5, height=6, units="in", dpi=900)
 
 
 ### what's the variation in the 8 hr summer ozone?

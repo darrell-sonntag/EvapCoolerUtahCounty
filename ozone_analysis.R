@@ -869,22 +869,24 @@ display.brewer.all()
 
 ## Figure 8
 ## boxplot I/O by house
-ggplot(data=ozone.ave.house.qa,aes(x=ac.type, y=io.house, color=ac.type))+
+f8 <- ggplot(data=ozone.ave.house.qa,aes(x=ac.type, y=io.house, color=ac.type))+
   geom_boxplot(outlier.shape = NA)+
   geom_jitter(width=0.05,size=2, aes(shape = O3.Below.detection_In))+
-  labs(y='I/O',x='')+
+  labs(y='I/O',x='',title='(a)')+
   theme_bw()+
   expand_limits(y=c(0,1))+
   scale_y_continuous(breaks = seq(0,1,.2))+
   scale_color_manual(name = 'House Type', values = own.colors.3)+
   scale_shape_manual(name = 'Below LOD',values = c(21,24))+
-  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=14),
-        axis.title = element_text(size = 14),plot.title = element_text(size = 20),
-        legend.title = element_text(size = 14),legend.text = element_text(size = 12),
-        strip.text = element_text(size=14),
-        plot.margin= margin(t=1,r=1,b=1,l=1))+
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 12,hjust=0.5),
+        legend.title = element_text(size = 12),legend.text = element_text(size = 10),
+        strip.text = element_text(size=10),
+        plot.margin= margin(t=1,r=1,b=0,l=1))+
   theme(legend.position = 'right')
-ggsave(".//Graphics//Ozone//I.O.house.boxplot.png",width=6, height=4, units="in", dpi=600)
+
+f8
+ggsave(".//Graphics//Ozone//I.O.house.boxplot.png",width=5, height=3, units="in", dpi=600)
 
 
 
@@ -923,20 +925,29 @@ write_csv(glance(t.test.ozone),'.//Processed Data//t.test.io.ozone.csv')
 
 ## Figure 9
 
-png(".//Graphics//Ozone//O3.IO.ratio.AC.type.png", width=4.5, height=4, units="in", res=300)
-ggplot(data=ozone.ave.type.2,aes(x=ac.type, y= mean, fill=ac.type))+
+
+f9 <- ggplot(data=ozone.ave.type.2,aes(x=ac.type, y= mean, fill=ac.type))+
   geom_col()+
   geom_errorbar(aes(ymin=lower.95,ymax=upper.95,width=0.25))+
   theme_bw()+
   expand_limits(y=c(0,1))+
   scale_y_continuous(breaks = seq(0,1,.2))+
-  labs(y='Mean I/O',x='') +
+  labs(y='I/O',x='',title='(b)') +
   #scale_fill_brewer(palette = 'Paired')+
   scale_fill_manual(name = 'House', values = own.colors.3)+
   theme(legend.position = 'none')+
-  theme(axis.text.y = element_text(size=14),axis.text.x = element_text(size=12),
-        axis.title = element_text(size = 14))
-dev.off()
+  theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 12,hjust=0.5),
+        plot.margin= margin(t=1,r=1,b=0,l=1))
+
+f9
+ggsave(".//Graphics//Ozone//O3.IO.ratio.AC.type.png",width=3, height=3, units="in", dpi=600)
+
+
+f8+f9 + plot_layout(ncol = 2)
+ggsave(".//Graphics//Ozone//f10.png",width=5, height=4, units="in", dpi=600)
+
+
 
 ## Calculate mean indoor with 95% CI
 
