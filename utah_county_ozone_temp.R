@@ -47,10 +47,10 @@ max.temp <- max.temp %>%
 
 names(epa.ozone.8hr)
 
-## merge the two datasets together
+## merge the two data sets together
 
 ozone.8hr.temp <- epa.ozone.8hr.date %>%
-                  left_join(max.temp,by='Date')
+                  left_join(max.temp,by='Date') 
 
 
 ozone.8hr.temp.lindon <- ozone.8hr.temp %>%
@@ -110,6 +110,7 @@ a1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=MaxTempC))+
   geom_line(color='darkgrey',size=1) +
   labs(x = '', y= expression("Daily Maximum \nTemperature,"~degree*C),title='Brigham Young University, Provo')+
   theme_bw() +
+  scale_x_date(date_labels = '%b %Y')+
   theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
         axis.title.y = element_text(size = 10,vjust=0),plot.title = element_text(size = 12,hjust = 0.5,vjust=0),
         plot.margin = margin(t=0,r=1,b=0,l=12))
@@ -130,6 +131,7 @@ b1 <- ggplot(ozone.8hr.temp.lindon, aes(x=Date,y=ozone.8hr.ppb))+
   annotate("text",label = "Unhealthy",  x=as_date('2022-02-15'),  y=88, hjust=0,size=3 )+
   geom_line(color="darkgrey",size=1) +
   theme_bw()+
+  scale_x_date(date_labels = '%b %Y')+
   scale_y_continuous(breaks=seq(0,80,20),lim=c(0,88))+
   labs(x='', y='Daily Maximum 8-hour \nOzone Concentration, ppb', title = 'Lindon')+
   theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
@@ -152,10 +154,11 @@ c1 <- ggplot(ozone.8hr.temp.sf, aes(x=Date,y=ozone.8hr.ppb,color=`Site Name`))+
   geom_line(color =  "darkgrey",size=1) +
   theme_bw()+
   scale_y_continuous(breaks=seq(0,80,20),lim=c(0,88))+
+  scale_x_date(date_labels = '%b %Y')+
   labs(x='', y='Daily Maximum 8-hour \nOzone Concentration, ppb',title = 'Spanish Fork')+
   theme(axis.text.y = element_text(size=10),axis.text.x = element_text(size=10),
         axis.title.y = element_text(size = 10,vjust=2),plot.title = element_text(size = 12,hjust = 0.5,vjust=0),
-        plot.margin = margin(t=0,r=1,b=0,l=12))
+        oplot.margin = margin(t=0,r=10,b=0,l=12))
 
 
 c1

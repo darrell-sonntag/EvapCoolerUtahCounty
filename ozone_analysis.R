@@ -280,15 +280,21 @@ home.counts <- summary %>%
 # ozone summary
 #############
 
+library(lubridate)
+
 smoke.event <- interval(ymd('2022-09-08'),ymd('2022-09-12'))
 
 names(summary)
+
+dmy(as_date('2022-09-08'))
 
 ozone.summary <- summary %>%
   filter(season =='Summer') %>%
   #dplyr::filter(!is.na(O3.LOD.ppm)) %>% ## just keep the visits with Ozone data 
   mutate(house.number.visit = paste(House.Number,Visit,sep=" ")) %>%
+  mutate(first.day = format(first.day,"%d %b %y")) %>%
   mutate(house.number.visit.date = paste(first.day,house.number.visit,sep=" ")) %>%
+  mutate(first.day = dmy(first.day)) %>%
   mutate(ac.type = ifelse(`Type of Air Conditioner`=='Central','AC',ifelse(`Type of Air Conditioner`=='Evaporative','EC',NA))) %>%
   mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal')) %>%
   mutate(House.Number = ifelse(house.number.visit =='H15 V1','H09',House.Number)) %>% ### Change H15 V1 to H09 V3
@@ -316,6 +322,7 @@ write_csv(ozone.summary,".//Processed Data//ozone.summary.csv")
 
 ozone.summary$house.number.visit <- factor(ozone.summary$house.number.visit,levels=rev(sort(unique(ozone.summary$house.number.visit))),ordered=T)
 ozone.summary$house.number.visit.date <- factor(ozone.summary$house.number.visit.date,levels=rev(sort(unique(ozone.summary$house.number.visit.date))),ordered=T)
+ozone.summary$house.number.visit.date <- factor(ozone.summary$house.number.visit.date,levels=unique(ozone.summary$house.number.visit.date[rev(order(ozone.summary$first.day))]),ordered=T)
 ozone.summary$Location <- factor(ozone.summary$Location,levels=c("Out","In"),ordered=T)
 
 lapply(ozone.summary,class)
@@ -324,7 +331,7 @@ lapply(ozone.summary,class)
 
 ### sustainability Figure 3
 ann_text_LOD <- data.frame(lab = c("Above LOD","Below LOD","Below LOD"), Location = c('Out','Out','Out'),
-                           house.number.visit.date = c('2022-08-11 H12 V1','2023-08-10 H29 V1','2023-08-21 H29 V2'),
+                           house.number.visit.date = c('11 Aug 22 H12 V1','10 Aug 23 H29 V1','21 Aug 23 H29 V2'),
                            ac.type = c("AC","EC","EC"), O3.ppm = c(11/1000,4/1000,4/1000))
 
 # https://r-graphics.org/recipe-annotate-facet
@@ -363,7 +370,7 @@ ggplot(data = filter(ozone.summary,!is.na(O3.LOD.ppb)),  aes(y = house.number.vi
         axis.title = element_text(size = 14),plot.title = element_text(size = 14),
         legend.title = element_text(size = 12),legend.text = element_text(size = 12),
         strip.text = element_text(size=12),
-        plot.margin= margin(t=-10,r=1,b=-1,l=-1))
+        plot.margin= margin(t=-15,r=1,b=-1,l=-1))
 ggsave(".//Graphics//Ozone//ozone.indoor.outdoor.date.png", width=5.2, height=7, units="in", dpi=900)
 
 ## 
@@ -481,12 +488,31 @@ write_csv(ozone.supp.2,".//Processed Data//ozone.supp.table.temp.rh.csv")
 names(sidepak.stats) ## this is wide format has I/O
 names(ozone.wide)
 
-EvapCooler.summary <- sidepak.stats %>%
-    full_join(ozone.wide,by=c("House.Number", "Visit","house.number.visit",  "house.number.visit.date",
-                                 "first.day", "Type of Air Conditioner", "ac.type" ,"season","Monitor.closest",
-                                 "average.Temp_Out","average.RH_In",  "average.RH_Out" ,  "min.Temp_In" , 
-                                 "min.Temp_Out"  , "max.Temp_In" , "max.Temp_Out"))
 
+ozone.wide <- ozone.wide %>%
+              mutate(house.number.visit = as.character(house.number.visit))
+
+ozone.wide.select <- ozone.wide %>%
+                     rename("I/O_O3"="I/O") %>%
+                     select("House.Number", "Visit" , "house.number.visit", 'first.day',
+                            "season", "Monitor.closest" ,  "ac.type",
+                            "I/O_O3") 
+
+names(sidepak.stats)
+sidepak.stats.select <- sidepak.stats %>%
+                        rename("I/O_PM" = "I/O") %>%
+                        mutate(ac.type = ifelse(`Type of Air Conditioner`=='Central','AC',ifelse(`Type of Air Conditioner`=='Evaporative','EC',NA))) %>%
+                        select(1:3,6,8:12,23,26:34) 
+                          
+                            
+EvapCooler.summary <- sidepak.stats.select %>%
+    mutate(house.number.visit = as.character(house.number.visit)) %>%
+    full_join(ozone.wide.select,by=c("House.Number", "Visit","house.number.visit",  
+                                 "first.day","season","Monitor.closest","ac.type")) %>%
+    mutate(day.type = ifelse(as_date(first.day) %within% smoke.event,'Wildfire Smoke','Normal')) 
+
+
+View(EvapCooler.summary)
 
 write_csv(EvapCooler.summary,".//Processed Data//EvapCooler.summary.csv")
 
@@ -639,7 +665,8 @@ ggplot(data=ozone.wide.graph,aes(x=Ozone.UDAQ.ppb, y=`I/O`))+
   theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
         axis.title = element_text(size = 12),plot.title = element_text(size = 20),
-        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+        strip.text = element_text(size=12),legend.text = element_text(size = 12),
+        plot.margin = margin(t=0,r=20,b=0,l=10))
 ggsave(".//Graphics//Ozone//O3.IO.vs.Ozone.png", width=5.3, height=3.5, units="in", dpi=600)
 
 ## I/O vs. study outdoor ozone
@@ -767,7 +794,8 @@ ggplot(data=ozone.wide.graph,aes(x=RH_diff_min, y=`I/O`))+
   theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
         axis.title = element_text(size = 12),plot.title = element_text(size = 20),
-        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+        strip.text = element_text(size=12),legend.text = element_text(size = 12),
+        plot.margin = margin(t=0,r=20,b=0,l=10))
 ggsave(".//Graphics//Ozone//O3.IO.vs.RH.diff.min.lin.png", width=5.3, height=3.5, units="in", dpi=600)
 
 
@@ -793,7 +821,8 @@ ggplot(data=ozone.wide.graph,aes(x=ozone.max_Out*1000, y=ozone.max_In*1000))+
   theme(axis.text.y = element_text(size=12),
         axis.text.x = element_text(size=12),
         axis.title = element_text(size = 12),plot.title = element_text(size = 20),
-        strip.text = element_text(size=12),legend.text = element_text(size = 12))
+        strip.text = element_text(size=12),legend.text = element_text(size = 12),
+        plot.margin = margin(t=0,r=10,b=0,l=0))
 ggsave(".//Graphics//Ozone//Indoor.Outdoor.png", width=5.3, height=3.5, units="in", dpi=600)
 
 
