@@ -502,7 +502,7 @@ names(sidepak.stats)
 sidepak.stats.select <- sidepak.stats %>%
                         rename("I/O_PM" = "I/O") %>%
                         mutate(ac.type = ifelse(`Type of Air Conditioner`=='Central','AC',ifelse(`Type of Air Conditioner`=='Evaporative','EC',NA))) %>%
-                        select(1:3,6,8:12,23,26:34) 
+                        select(1:3,6,8:14,23,26:34) 
                           
                             
 EvapCooler.summary <- sidepak.stats.select %>%
