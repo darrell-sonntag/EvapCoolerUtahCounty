@@ -182,6 +182,11 @@ sidepak.correlation.qa <- sidepak.correlation.complete %>%
 sidepak.complete.qa <- sidepak.correlation.qa %>%
   pivot_longer(cols = c('In','Out'), names_to = 'Location', values_to ='Aerosol')
 
+## export sidepak.complete.qa for use in graduate seminar demonstration
+
+write.csv(sidepak.complete.qa,"C:\\Users\\Sonntag\\OneDrive - Brigham Young University\\Seminar\\Graduate Seminar\\timeseries.csv",row.names = F)
+
+
 sidepak.summary.qa <- sidepak.complete.qa %>%
   #break up into groups
   group_by(House.Number,Visit,Location) %>%
@@ -1153,4 +1158,19 @@ t.test.fire <- sidepak.stats.long %>%
 
 ## Yes, the difference is statistically significant at a 95% confidence intervals
 
-## What is the mean Fin during 
+## Calculate summary statistics by day type and ac.type and season
+
+summary.pm.day.type <- sidepak.stats.long %>%
+  group_by(statistic,ac.type, season, day.type) %>%
+  summarize(mean = mean(value),
+            sd = sd(value),
+            n = sum(!is.na(value))) %>%
+  mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
+  mutate(bound = tcrit*sd/sqrt(n)) %>%
+  mutate(lower.95 = mean-bound) %>%
+  mutate(upper.95 = mean+bound ) 
+
+View(summary.pm.day.type)
+
+
+write.csv(summary.pm.day.type,".//Processed Data//summary.pm.day.type.csv",row.names = FALSE)
