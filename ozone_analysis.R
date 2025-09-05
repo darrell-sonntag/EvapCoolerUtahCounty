@@ -495,7 +495,8 @@ ozone.wide <- ozone.wide %>%
 ozone.wide.select <- ozone.wide %>%
                      rename("I/O_O3"="I/O") %>%
                      select("House.Number", "Visit" , "house.number.visit", 'first.day',
-                            "season", "Monitor.closest" ,  "ac.type",
+                            "season", "Monitor.closest" ,  "ac.type","Ozone.UDAQ.ppb","O3.Below.detection_Out",
+                            "O3.Below.detection_In",
                             "I/O_O3") 
 
 names(sidepak.stats)

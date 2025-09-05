@@ -20,10 +20,13 @@ library(patchwork)
 #### 
 ### read in metadata and ac data
 
+
+
 # make sure current directory is in the Github/EvapCoolerUtahCounty
 
 path <- ".\\Data\\Research Data Master List.xlsx"
-metadata <- read_excel(path = path)
+metadata <- read_excel(path = path,sheet='Housing Survey Answers')
+
 
 acdata <- metadata %>%
   select("House.Number","Type of Air Conditioner") 
@@ -392,6 +395,8 @@ TRH.data2 <- TRH.data %>%
   filter(!is.na(Temp)) ## remove any blank NA's
 
 
+lapply(TRH.data2,class)
+
 ## THD.data2 was the data that we plotted...
 ## merge TRH.data3 to the visitmaster.list.2
 
@@ -403,6 +408,8 @@ TRH.data3 <- inner_join(TRH.data2,visitmaster.list.2,
                         between(date.time,start_date,end_date))) %>%
                         mutate(date.time = round_date(date.time,"5 minutes"))
 
+
+lapply(TRH.data3,class)
 
 ## read in Data from the BYU Eyring Science Center Weather Station for the summer visits
 BYU_TRH_2022 <- read_csv(".\\Data\\BYU Weather Station\\2022.csv") %>%
@@ -420,7 +427,8 @@ BYU_TRH_2022 <- read_csv(".\\Data\\BYU Weather Station\\2022.csv") %>%
 BYU_TRH_2023 <- read_csv(".\\Data\\BYU Weather Station\\2023.csv") %>%
                 mutate(Date = dmy(Date)) 
 
-names(BYU_TRH)
+
+
 
 BYU_TRH <- bind_rows(BYU_TRH_2022,BYU_TRH_2023) %>%
            mutate(date.time = ymd_hms(paste(Date,Time))) %>%
@@ -431,6 +439,7 @@ BYU_TRH <- bind_rows(BYU_TRH_2022,BYU_TRH_2023) %>%
           mutate(Location = 'BYU') %>%
           select('House.Number','Visit','first.day','date.time','Temp','RH','Location')
 
+lapply(BYU_TRH,class)
 
 TRH.data4 <- TRH.data3 %>%
              bind_rows(BYU_TRH) %>%
@@ -450,12 +459,13 @@ TRH.data4 <- TRH.data3 %>%
             left_join(acdata, by= "House.Number") %>%
             mutate(ac.type = ifelse(`Type of Air Conditioner`=='Central','Central',ifelse(`Type of Air Conditioner`=='Evaporative','Evap',NA))) 
 
-
 ## graph the summer data in 'graph.temp.humidity.summer.R'
 
 ## Create wide.out, where the BYU data is next to our measured data
 
-names(TRH.data4)
+names(TRH.data3)
+
+lapply(TRH.data4 ,class)
 
 TRH.out.wide <- TRH.data4 %>%
                 filter(Location %in% c('Out','BYU')) %>%
@@ -463,6 +473,8 @@ TRH.out.wide <- TRH.data4 %>%
                         'RH','Temp','season') %>%
                 pivot_wider(names_from = Location, values_from = c(Temp,RH)) 
 
+names(TRH.out.wide) 
+lapply(TRH.out.wide ,class)
 
 duplicates <-   TRH.data4 %>%
   dplyr::group_by(House.Number, Visit, house.number.visit, date.time, Location) %>%
@@ -478,19 +490,36 @@ duplicates.id <- duplicates %>%
 #
 View(duplicates.id)
        
-names(TRH.out.wide) 
+
+check.TRH <- TRH.out.wide %>%
+  mutate(RH_BYU = as.numeric(as.character(RH_BYU))) %>%
+  mutate(RH_Out = as.numeric(as.character(RH_Out))) %>%  
+  mutate(Temp_BYU = as.numeric(as.character(Temp_BYU))) %>%
+  mutate(Temp_Out = as.numeric(as.character(Temp_Out))) %>%
+  group_by(House.Number,Visit) %>%
+  summarize(mean_BYU = mean(RH_BYU,na.rm=T), mean_Out = mean(RH_Out,na.rm=T),
+            count_RH_BYU = sum(!is.na(RH_BYU)), count_RH_Out = sum(!is.na(RH_Out)))
 
 TRH.out.qa <- TRH.out.wide %>%
                     mutate(Temp_Out = ifelse(season == 'Summer',Temp_BYU,Temp_Out)) %>% # use the BYU outdoor temp data for all visits in the summer (If we wanted to we could add in the BYU data for the Winter in the future)
-                    mutate(RH_Out = ifelse(house.number.visit %in% c("H13 V1","H10 V1",
-                                            "H31 V1","H02 V4",
+                    mutate(RH_Out = ifelse(house.number.visit %in% 
+                                             c("H31 V1","H02 V4",
                                             "H02 V4","H33 V1",
                                             "H24 V1","H19 V3"),
                                             RH_BYU,RH_Out)) %>% ## use the BYU outdoor RH for some of the visits with missing/incomplete data
                   mutate(Location = 'Out') %>%
                   rename(RH = RH_Out, Temp = Temp_Out) %>%
-                  select('House.Number','Visit','Location','house.number.visit','Location','date.time',
-                         'RH','Temp','season')
+                  select('House.Number','Visit','Location','house.number.visit','date.time',
+                         'RH','Temp','season') %>%
+                  mutate(RH = as.numeric(as.character(RH))) %>%
+                  mutate(Temp = as.numeric(as.character(RH)))
+
+
+
+
+
+
+### put the indoor and the outdoor back together
     
 TRH.long.qa <- TRH.data4 %>%
                filter(Location =='In') %>%
@@ -498,6 +527,7 @@ TRH.long.qa <- TRH.data4 %>%
                        'RH','Temp','season') %>%
                bind_rows(TRH.out.qa)
 
+class(TRH.out.wide)
 
 names(TRH.data4)
 names(TRH.out.qa)
@@ -518,10 +548,6 @@ TRH_Summary_Table <- TRH.long.qa %>%
     
 
 write.csv(TRH_Summary_Table,".//Processed Data//TRH_Summary.csv",row.names = FALSE)
-
-
-
-
 
 
 #### 
