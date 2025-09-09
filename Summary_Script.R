@@ -1190,13 +1190,16 @@ summary.pm.day.type <- sidepak.stats.long %>%
   group_by(statistic,ac.type, season, day.type) %>%
   summarize(mean = mean(value),
             sd = sd(value),
-            n = sum(!is.na(value))) %>%
+            n = sum(!is.na(value)),
+            median = median(value),
+            p10 = quantile(value,probs=0.10),
+            p90 = quantile(value,probs=0.90)) %>%
   mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
   mutate(bound = tcrit*sd/sqrt(n)) %>%
   mutate(lower.95 = mean-bound) %>%
   mutate(upper.95 = mean+bound ) 
-
+  
 View(summary.pm.day.type)
-
+?quantile
 
 write.csv(summary.pm.day.type,".//Processed Data//summary.pm.day.type.csv",row.names = FALSE)

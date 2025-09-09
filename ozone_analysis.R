@@ -919,15 +919,16 @@ f8
 ggsave(".//Graphics//Ozone//I.O.house.boxplot.png",width=5, height=3, units="in", dpi=600)
 
 
-
-
 ### Calculate mean I/O by ac type and 95% CI
 
 ozone.ave.type.2 <- ozone.ave.house.qa %>%
   group_by(ac.type) %>%
   summarize(mean = mean(io.house),
             sd = sd(io.house),
-            n = sum(!is.na(io.house))) %>%
+            n = sum(!is.na(io.house)),
+            median = median(io.house),
+            p10 = quantile(io.house,probs=0.10),
+            p90 = quantile(io.house,probs=0.90)) %>%
   mutate(tcrit = qt(.975,df=(n-1))) %>% ## two-sided 
   mutate(bound = tcrit*sd/sqrt(n)) %>%
   mutate(lower.95 = mean-bound) %>%

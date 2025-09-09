@@ -1,4 +1,6 @@
-setwd("C:\\Users\\cello\\OneDrive\\문서\\Github\\EvapCoolerUtahCounty")
+#setwd("C:\\Users\\cello\\OneDrive\\문서\\Github\\EvapCoolerUtahCounty")
+
+library(ggplot2)
 
 sidepakfiles.all.graphs <- sidepakfiles.all.same.time %>%
   mutate(house.number.visit = ifelse(house.number.visit =='H15 V1','H09 V3',house.number.visit)) %>% ### Change H15 V2 to H09 V4 
@@ -539,6 +541,37 @@ ggplot(sidepak.stats.long.reg,aes(x=ac.type,y=value,color=ac.type)) +
         legend.text = element_text(size = 14),legend.position="none",
         strip.placement='outside')
 dev.off()
+
+
+### compare 95% CI and t-test
+
+png(".//Graphics//SidePak//Sustainability.t.test.vs.error.bars.png", width=6, height=6, units="in", res=300)
+ggplot(sidepak.stats.long.reg,aes(x=ac.type,y=value)) +
+  geom_signif(comparisons=list(c('Central','Evap')),
+              map_signif_level=FALSE,test='t.test',
+              color='black',vjust=1.5,margin_top=0.1)+
+  scale_fill_manual(values = own.colors,drop=F)+
+  geom_col(data=sidepak.stat.long.means.reg,aes(x=ac.type,y=mean,fill=ac.type))+
+  geom_errorbar(data=sidepak.stat.long.means.reg,aes(x=ac.type,y=mean,ymin =lower.95, ymax = upper.95),width=0.2) +
+  facet_grid(statistic~season,scales='free_y',switch='y',
+             labeller = as_labeller(c(Summer = 'Summer', Winter='Winter',Cs = "Cs (ug/m3)",Fin="Fin (ug/m3)",R2 = "R2"))) +
+  labs(y = "", title='',x='')+
+  geom_text(data = pvalue_text,label = pvalue_text$lab,color='black',
+            mapping=aes(x=Inf,y=Inf,label=lab),hjust=3.3,vjust=2)+
+  theme_bw()+
+  expand_limits(y = 0)+
+  theme(axis.text.x = element_text(size=10), axis.text.y = element_text(size=10),
+        axis.title = element_text(size = 12),plot.title = element_text(size = 18),
+        strip.text = element_text(size=10),
+        legend.text = element_text(size = 14),legend.position="none",
+        strip.placement='outside')
+dev.off()
+
+
+
+
+
+
 
 ### sustainability Figure 7
 ann_text_Figure_7 <- data.frame(lab = c("a","b","c","d"), 
