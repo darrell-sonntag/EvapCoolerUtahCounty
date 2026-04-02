@@ -1,0 +1,709 @@
+---
+title: "Air Pollution Survey Analysis"
+format: pdf
+editor: visual
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+Notes from meeting: standardize perceived risk scores to perceived risk proportion: add perceived risk for pm2.5 (call it perceived threat pm2.5) and 03 (perceived threat 03) rows, and grand total Change knowledge scores
+
+Notes from March 27: add in ranked scatterplots of IO level and difference
+
+Meeting Notes: table and graph constructs in the same order,
+
+images should be jpegs (9pt arial font for figure labels)
+
+## Methods:
+
+The analysis focuses on differences in pre and post intervention survey responses related to pollutant risk perception. We first found that among the 15 subjects who completed both surveys, 2 surveys had a small number (6) of non-responses. We impute these responses using KNN imputation from the VIM package in R. Next, we conducted a confirmatory factor analysis in SAS on questionnaire responses with perceived susceptibility and perceived sustainability as latent factors. Results didn't produce a good enough fit to confirm these as underlying factors related to the answering of the survey questions. Next, we perform two-sided t-tests on overall risk score differences and risk score differences broken down by risk perception constructs (as defined by survey designers). Due to differing maximum risk scores for each construct, we standardize risk scores by dividing by the total possible risk score for each construct. We also perform two-sided t-tests on overall pollutant knowledge score differences. Finally, we explore the relationship between the actual pollutant level in an individual's home and their perceived risk. We do this by fitting linear models with perceived risk score difference as the response and pollutant level as the covariate. We also perform ranked spearman correlation tests on these same variables to explore ranked correlation.
+
+## Data
+
+House 6 Pre-Intervention has NAs for Q12 and Q13. House 33 Pre-Intervention has an NA for Q11. We used KNN imputation to impute these missing values for the analysis.
+
+```{r}
+
+library(tidyverse)
+
+# set theming
+
+theme_set(
+  theme_minimal(base_family = "Arial", base_size = 9)
+)
+
+df_raw <- read_csv("survey_aq_data_1-29-2026.csv")
+
+# create dataframe used for factor analysis
+fa_df <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  filter(QuestionID %in% paste0("Q", sprintf("%02d", 9:22))) %>%
+  pivot_wider(id_cols = c(HouseID, Survey), names_from = QuestionID, values_from = Score_mod) %>%
+  filter(HouseID != "H29") # H29 survey is all NAs
+  #select(-c(1,2)) %>%
+
+# impute NA values
+library(VIM)
+
+fa_df_imputed <- kNN(fa_df %>% dplyr::select(-c(HouseID, Survey))) %>%
+  select(1:(ncol(fa_df)-2)) %>%
+  mutate(HouseID = fa_df$HouseID,
+         Survey = fa_df$Survey)
+
+write_csv(fa_df_imputed, "factor_analysis_df.csv")
+
+```
+
+## Factor Analysis
+
+Confirmatory Factor Analysis with perceived susceptibility and perceived sustainability as latent factors didn't produce a good enough fit to confirm these as underlying factors related to the answering of the survey questions.
+
+## Score Comparison
+
+### General Score
+
+```{r}
+# initial look at score comparison
+test1_df <- fa_df_imputed %>% 
+  mutate(total_score =  rowSums(across(Q09:Q22))) %>%
+  select(HouseID, Survey, total_score) %>%
+  pivot_wider(id_cols = HouseID, names_from = Survey, values_from = total_score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+differences <- test1_df$difference
+
+# not significant
+#t.test(differences)
+```
+
+Testing the difference between pre and post test scores gives a p-value of .07 and 95% confidence interval of (-6.3, 0.32).
+
+### Subsetted Scores
+
+```{r}
+
+
+groups <- df_raw %>%
+  filter(!QuestionID %in% c("Q23", "Q24")) %>% # duplicate quesitons
+  select(QuestionID, Construct) %>%
+  distinct(.keep_all = TRUE) %>%
+  group_by(Construct) %>%
+  summarize(QuestionIDs = list(QuestionID)) %>%
+  ungroup()
+
+sevo3_qs <- groups %>% filter(Construct == "Perceived Severity (O3)") %>% pull(QuestionIDs)
+sevpm_qs <- groups %>% filter(Construct == "Perceived Severity (PM2.5)") %>% pull(QuestionIDs)
+suso3_qs <- groups %>% filter(Construct == "Perceived Susceptibility (O3)") %>% pull(QuestionIDs)
+suspm_qs <- groups %>% filter(Construct == "Perceived Susceptibility (PM2.5)") %>%
+  pull(QuestionIDs)
+
+get_score_analysis <- function(qs, construct_name) {
+  
+  total_possible <- length(qs)*5
+  
+  test2_df <- fa_df_imputed %>%
+    select(HouseID, Survey, all_of(qs)) %>%
+    mutate(total_score = rowSums(across(all_of(qs)))) %>%
+    select(HouseID, Survey, total_score) %>%
+    pivot_wider(id_cols = HouseID,
+                names_from = Survey,
+                values_from = total_score) %>%
+    mutate(Post_Intervention = Post_Intervention/total_possible,
+           Pre_Intervention = Pre_Intervention/total_possible,
+      difference = Post_Intervention - Pre_Intervention)
+  
+  test <- t.test(test2_df$difference)
+  
+  # return both the data and the t-test result
+  list(
+    Construct = construct_name,
+    data = test2_df,
+    pre_score = mean(test2_df$Pre_Intervention),
+    post_score = mean(test2_df$Post_Intervention),
+    t_stat = unname(test$statistic),
+    p_value = test$p.value,
+    mean = test$estimate,
+    ci = c(test$conf.int[1], test$conf.int[2])
+  )
+}
+
+construct_qs <- list(
+  "Perceived Severity (O3)" = sevo3_qs[[1]],
+  "Perceived Severity (PM2.5)" = sevpm_qs[[1]],
+  "Perceived Susceptibility (O3)" = suso3_qs[[1]],
+  "Perceived Susceptibility (PM2.5)" = suspm_qs[[1]],
+  "Perceived Threat (O3)" = c(sevo3_qs[[1]], suso3_qs[[1]]),
+  "Perceived Threat (PM2.5)" = c(sevpm_qs[[1]], suspm_qs[[1]])
+)
+
+library(knitr)
+library(kableExtra)
+
+results <- lapply(names(construct_qs), function(con) {
+  get_score_analysis(construct_qs[[con]], con)
+})
+
+# turn into a summary table
+summary_table <- bind_rows(lapply(results, function(x) {
+  data.frame(
+    Construct = x$Construct,
+    `Pre Survey Score` = round(x$pre_score, 2),
+    `Post Survey Score` = round(x$post_score, 2),
+    Difference = round(x$mean, 2),
+    `T-stat` = round(x$t_stat, 2),
+    `P-value` = round(x$p_value, 3),
+    `95% CI` = paste0(
+      "(",
+      round(x$ci[1], 2), ", ",
+      round(x$ci[2], 2),
+      ")"
+    ),
+    check.names = FALSE
+  )
+}))
+
+tbl1 <- summary_table %>%
+  arrange(desc(Construct)) %>%
+  kable(
+    row.names = FALSE,
+    digits = 4,
+    booktabs = TRUE,
+    caption = "T-tests of Pre- vs Post-Intervention Differences by Construct"
+  ) %>%
+  kable_styling(latex_options = "hold_position",
+                font_size = 9,
+                full_width = FALSE) %>%
+  row_spec(0, extra_css = "font-family: Arial;")
+
+tbl1
+#save_kable(tbl1, "construct_differences_table.jpeg")
+
+
+
+risk_graphic_df <- bind_rows(lapply(results, function(x) {
+  data.frame(
+    Construct = x$Construct,
+    Mean = x$mean,
+    ci_lower = x$ci[1],
+    ci_upper = x$ci[2]
+  )
+}))
+
+risk_graphic_df_final <- risk_graphic_df[1:6,]
+
+construct_diff_plt <- ggplot(risk_graphic_df_final, aes(y = Construct, x = Mean)) +
+  geom_col(width = 0.6, fill = "grey70") +
+  geom_errorbar(
+    aes(xmin = ci_lower, xmax = ci_upper),
+    width = 0.15,
+    linewidth = .5
+  ) +
+  geom_label(aes(y = Construct, x = Mean, label = round(Mean, digits = 2),
+                 nudge_x = .00)) + 
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  labs(
+    x = "Score Difference",
+    y = "Construct"
+  ) +
+  theme_minimal() +
+  theme(
+    #axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+construct_diff_plt
+
+#ggsave("construct_difference_plot.jpeg", construct_diff_plt)
+```
+
+Paired t-tests broken down by air pollutant and construct type (perceived severity and perceived susceptibility) were run to test if risk perception changed from pre to post test. Results showed that with $\alpha = .05$ there doesn't appear to be a significant difference between risk perception pre to post survey overall for PM2.5 (p-value = .259). For O3, however we find a statistically significant difference in pre to post intervention risk perception (p-value = .02). Breaking down scores by severity and susceptibility showed that O3 perceived susceptibility scores dropped significantly  (p-value = .048) while the drop in PM2.5 perceived susceptbility was not significant  (p-value = .212). Changes in perceived severity for both PM2.5 and O3 were not significant (p-values of .806 and .08 respectively). Figure \# illustrates these results by showing the average change in perceived risk broken down by construct and pollutant with 95% confidence bands. All categories besides PM2.5 perceived severity have an average difference less than 0. Confidence bands also show that although we can't conclude that the difference in scores is negative, there is reason to believe that participation in this study may have led to an overall decrease in perceived risk for the subjects. It is important to note that for each construct (severity and susceptibility) and pollutant (PM2.5 and O3) there were 4 questions relating to that construct with the exception of PM2.5 perceived severity, where there were only 2 questions. This can explain why the confidence band is so high for this specific construct and why it doesn't seem to follow the patterns of the other constructs.
+
+### Knowledge Scores
+
+```{r}
+
+# Changes single response questions from -1 to 0
+# add total knowledge score test to the graphic
+
+qs_not_to_change <- c("Q04", "Q08")
+
+# overall knowledge
+knowledge_df <- df_raw %>%
+  filter(Construct_general == "Knowledge") %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+knowledge_test <- t.test(knowledge_df$difference)
+
+knowledgeo3_qs <- groups %>% filter(Construct == "Knowledge (O3)") %>% pull(QuestionIDs)
+knowledgepm_qs <- groups %>% filter(Construct == "Knowledge (PM2.5)") %>% pull(QuestionIDs)
+
+# o3 knowledge
+knowledge03_df <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  filter(QuestionID %in% knowledgeo3_qs[[1]]) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+knowledge_o3test <- t.test(knowledge03_df$difference)
+
+# pm2.5 knowledge
+knowledgepm_df <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  filter(QuestionID %in% knowledgepm_qs[[1]]) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+knowledge_pmtest <- t.test(knowledgepm_df$difference)
+
+knowledge_table_df <- data.frame(
+  Pollutant = c("PM2.5", "O3", "Total"),
+  
+  `Pre Survey Score` = c(
+    round(mean(knowledgepm_df$Pre_Intervention, na.rm = TRUE), 2),
+    round(mean(knowledge03_df$Pre_Intervention, na.rm = TRUE), 2),
+    round(mean(knowledge_df$Pre_Intervention, na.rm = TRUE), 2)
+  ),
+  
+  `Post Survey Score` = c(
+    round(mean(knowledgepm_df$Post_Intervention, na.rm = TRUE), 2),
+    round(mean(knowledge03_df$Post_Intervention, na.rm = TRUE), 2),
+    round(mean(knowledge_df$Post_Intervention, na.rm = TRUE), 2)
+  ),
+  
+  Difference = c(
+    round(mean(knowledgepm_df$difference, na.rm = TRUE), 2),
+    round(mean(knowledge03_df$difference, na.rm = TRUE), 2),
+    round(mean(knowledge_df$difference, na.rm = TRUE), 2)
+  ),
+  
+  `T-stat` = c(
+    round(knowledge_pmtest$statistic, 2),
+    round(knowledge_o3test$statistic, 2),
+    round(knowledge_test$statistic, 2)
+  ),
+  
+  `P-value` = c(
+    round(knowledge_pmtest$p.value, 3),
+    round(knowledge_o3test$p.value, 3),
+    round(knowledge_test$p.value, 3)
+  ),
+  
+  `95% CI` = c(
+    paste0("(", round(knowledge_pmtest$conf.int[1],2), ", ", round(knowledge_pmtest$conf.int[2],2), ")"),
+    paste0("(", round(knowledge_o3test$conf.int[1],2), ", ", round(knowledge_o3test$conf.int[2],2), ")"),
+    paste0("(", round(knowledge_test$conf.int[1],2), ", ", round(knowledge_test$conf.int[2],2), ")")
+  ),
+  
+  check.names = FALSE
+)
+
+options(knitr.kable.NA = '--')
+tbl2 <- knowledge_table_df %>%
+  kable(
+    row.names = FALSE,
+    digits = 4,
+    booktabs = TRUE,
+    caption = "T-tests of Pre- vs Post-Intervention Knowledge Differences by Pollutant"
+  ) %>%
+  kable_styling(latex_options = "hold_position",
+                font_size = 9,
+                full_width = FALSE) %>%
+  row_spec(0, extra_css = "font-family: Arial;")
+tbl2
+#save_kable(tbl2, "knowledge_difference_tbl.jpeg")
+
+knowledge_graph_df <- tibble(
+  Pollutant = c("O3", "PM2.5", "Total"),
+  Mean = c(knowledge_o3test$estimate, knowledge_pmtest$estimate, knowledge_test$estimate),
+  ci_lower = c(knowledge_o3test$conf.int[1], knowledge_pmtest$conf.int[1], knowledge_test$conf.int[1]),
+  ci_upper = c(knowledge_o3test$conf.int[2], knowledge_pmtest$conf.int[2], knowledge_test$conf.int[2]),
+)
+
+library(ggplot2)
+
+knowledge_dif_plt <- ggplot(knowledge_graph_df, aes(y = Pollutant, x = Mean)) +
+  geom_col(width = 0.6, fill = "grey70") +
+  geom_errorbar(
+    aes(xmin = ci_lower, xmax = ci_upper),
+    width = 0.15,
+    linewidth = .5
+  ) +
+  geom_label(aes(y = Pollutant, x = Mean, label = round(Mean, digits = 2))) + 
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  labs(
+    x = "Score Difference",
+    y = "Pollutant"
+  ) +
+  theme_minimal()
+
+knowledge_dif_plt
+
+#ggsave("knowledge_difference_plot.jpeg" ,knowledge_dif_plt)
+
+## Individual Question Results
+questions_df <- df_raw %>%
+  filter(Construct_general == "Knowledge") %>%
+  select(HouseID, Survey, QuestionID, Question, Score_mod) %>%
+  mutate(Score_mod = case_when(Score_mod == -1 ~ 0,
+                               Score_mod < 0 ~ 1-abs(Score_mod),
+                               TRUE ~ Score_mod)) %>%
+  group_by(Question, Survey) %>%
+  summarize(score = mean(Score_mod, na.rm = TRUE)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = Question,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(Difference = Post_Intervention - Pre_Intervention) %>%
+  rename(`Post Intervention` = Post_Intervention,
+         `Pre Intervention` = Pre_Intervention)
+
+tbl3 <- questions_df %>%
+  kable(
+    row.names = FALSE,
+    digits = 2,
+    booktabs = TRUE,
+    caption = "Average Knowledge Scores for Each Question"
+  ) %>%
+  kable_styling(latex_options = "hold_position")
+tbl3
+
+#save_kable(tbl3, "knowledge_scores_tbl.jpeg")
+
+```
+
+T-tests were also run comparing knowledge scores from pre to post survey broken down by pollutant. Similar to the test results for perceived risk, we cannot conclusively say that participants knowledge on these pollutants as measured by their knowledge score increased (p-value = .089 for O3 and p-value = .092 for PM2.5). The plot below shows the average difference in knowledge scores pre to post survey along with 95% confidence bands. Although we cannot conclusively say that knowledge increased pre to post participation, there is reason to believe that participation led to an overall increase in participants' understanding of these pollutants.
+
+## Demographics
+
+```{r}
+demographic_df <- df_raw %>%
+  filter(Construct == "Demographic") %>%
+  select(HouseID, QuestionID, Question, Response) %>%
+  mutate(Response = if_else(
+    QuestionID == "Q32",
+    {
+      # split the "Y,M" string into two numbers
+      nums <- strsplit(Response, ",")
+      sapply(nums, function(x) {
+        as.numeric(x[1]) + as.numeric(x[2])/12
+      })
+    },
+    as.numeric(Response)  # for all other questions
+  ))
+
+
+# ac type
+ac_section <- df_raw %>%
+  distinct(HouseID, ac.type) %>%
+  count(ac.type) %>%
+  mutate(
+    Percent = round(100 * n / sum(n), 1),
+    Summary = paste0(n, " (", Percent, "%)")
+  ) %>%
+  bind_rows(
+    tibble(
+      ac.type = "AC Type",
+      n = NA,
+      Percent = NA,
+      Summary = ""
+    ),
+    .
+  ) %>%
+  transmute(
+    Section = if_else(ac.type == "AC Type", "AC Type", ""),
+    Label   = if_else(ac.type == "AC Type", "", paste0("   ", ac.type)),
+    Summary
+  )
+
+```
+
+```{r}
+# continuous stuff
+
+# Age
+age_vec <- demographic_df %>% filter(QuestionID == "Q32") %>% group_by(HouseID) %>%
+  arrange(Response) %>% slice_head(n = 1) %>% ungroup() %>% pull(Response)
+
+home_vec <- demographic_df %>% filter(QuestionID == "Q36") %>% group_by(HouseID) %>% arrange(Response) %>% slice_head(n = 1) %>% ungroup() %>% pull(Response)
+
+continuous_section <- tibble(
+  Section = c("Age (years)", "Number in Household"),
+  Label   = "",
+  Summary = c(
+    sprintf("%.1f (%.1f)", mean(age_vec, na.rm=TRUE), sd(age_vec, na.rm=TRUE)),
+    sprintf("%.1f (%.1f)", mean(home_vec, na.rm=TRUE), sd(home_vec, na.rm=TRUE))
+  )
+)
+
+# helper function for categorical stuff
+make_section <- function(data, qid, section_name, recode_fun) {
+  
+  tmp <- data %>%
+    filter(QuestionID == qid) %>%
+    mutate(Category = recode_fun(Response)) %>%
+    count(Category) %>%
+    mutate(
+      Percent = round(100 * n / sum(n), 1),
+      Summary = paste0(n, " (", Percent, "%)")
+    )
+  
+  bind_rows(
+    tibble(
+      Section = section_name,
+      Label   = "",
+      Summary = ""
+    ),
+    tmp %>%
+      transmute(
+        Section = "",
+        Label   = paste0("   ", Category),
+        Summary
+      )
+  )
+}
+
+gender_section <- make_section(
+  demographic_df %>% filter(QuestionID == "Q31") %>% 
+  group_by(HouseID) %>%
+  arrange(Response) %>%
+  slice_head(n = 1) %>%
+  ungroup(),
+  "Q31",
+  "Gender",
+  function(x) case_when(
+    x == 1 ~ "Male",
+    x == 2 ~ "Female"
+  )
+)
+
+race_section <- make_section(
+  demographic_df %>% filter(QuestionID == "Q33") %>% 
+  group_by(HouseID) %>%
+  arrange(Response) %>%
+  slice_head(n = 1) %>%
+  ungroup(),
+  "Q33",
+  "Race/Ethnicity",
+  function(x) case_when(
+    x == 3 ~ "Black or African American",
+    TRUE   ~ "Caucasian"
+  )
+)
+
+education_section <- make_section(
+  demographic_df %>% filter(QuestionID == "Q34") %>% 
+  group_by(HouseID) %>%
+  arrange(Response) %>%
+  slice_head(n = 1) %>%
+  ungroup(),
+  "Q34",
+  "Education",
+  function(x) case_when(
+    x == 4 ~ "Some College",
+    x == 5 ~ "Bachelor's Degree",
+    x == 6 ~ "Some Graduate",
+    x == 7 ~ "Master's Degree",
+    x == 8 ~ "Professional/Doctorate"
+  )
+)
+
+home_section <- make_section(
+  demographic_df %>% filter(QuestionID == "Q35") %>% 
+  group_by(HouseID) %>%
+  arrange(Response) %>%
+  slice_head(n = 1) %>%
+  ungroup(),
+  "Q35",
+  "Home Ownership",
+  function(x) case_when(
+    x == 1 ~ "Own",
+    TRUE   ~ "Rent"
+  )
+)
+
+relationship_section <- make_section(
+  demographic_df %>% filter(QuestionID == "Q37") %>% 
+  group_by(HouseID) %>%
+  arrange(Response) %>%
+  slice_head(n = 1) %>%
+  ungroup(),
+  "Q37",
+  "Relationship Status",
+  function(x) case_when(
+    x == 1 ~ "Currently Married",
+    x == 3 ~ "Single (Never Been Married)",
+    TRUE   ~ "Divorced"
+  )
+)
+```
+
+```{r}
+final_demo_table <- bind_rows(
+  continuous_section,
+  gender_section,
+  race_section,
+  education_section,
+  home_section,
+  relationship_section,
+  ac_section
+)
+
+library(gt)
+
+demo_tbl <- final_demo_table %>%
+  gt() %>%
+  cols_label(
+    Section = "",
+    Label = "",
+    Summary = "n (%) or Mean (SD)"
+  ) %>%
+  tab_header(title = "Table 1. Participant Demographics") %>%
+  tab_options(
+    table.font.names = "Arial",
+    table.font.size = px(12)  # ~9pt equivalent
+  )
+demo_tbl
+
+#gtsave(demo_tbl, "demographics_table.png")
+
+```
+
+# Exploring Pollution levels and Score Changes
+
+```{r}
+# initial look at score comparison
+model_df <- fa_df_imputed %>% 
+  mutate(total_score =  rowSums(across(Q09:Q22))) %>%
+  select(HouseID, Survey, total_score) %>%
+  pivot_wider(id_cols = HouseID, names_from = Survey, values_from = total_score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention) %>%
+  left_join(df_raw %>% distinct(HouseID, ac.type, mean_IO_PM_Summer, mean_IO_O3_Summer), "HouseID")
+
+o3_df <- fa_df_imputed %>%
+    select(HouseID, Survey, all_of(c(sevo3_qs[[1]], suso3_qs[[1]]))) %>%
+    mutate(total_score = rowSums(across(all_of(c(sevo3_qs[[1]], suso3_qs[[1]]))))) %>%
+    select(HouseID, Survey, total_score) %>%
+    pivot_wider(id_cols = HouseID,
+                names_from = Survey,
+                values_from = total_score) %>%
+    mutate(difference = Post_Intervention - Pre_Intervention) %>%
+  left_join(df_raw %>% distinct(HouseID, ac.type, mean_IO_PM_Summer, mean_IO_O3_Summer), "HouseID")
+
+
+pm_df <- fa_df_imputed %>%
+    select(HouseID, Survey, all_of(c(sevpm_qs[[1]], suspm_qs[[1]]))) %>%
+    mutate(total_score = rowSums(across(all_of(c(sevpm_qs[[1]], suspm_qs[[1]]))))) %>%
+    select(HouseID, Survey, total_score) %>%
+    pivot_wider(id_cols = HouseID,
+                names_from = Survey,
+                values_from = total_score) %>%
+    mutate(difference = Post_Intervention - Pre_Intervention) %>%
+  left_join(df_raw %>% distinct(HouseID, ac.type, mean_IO_PM_Summer, mean_IO_O3_Summer), "HouseID")
+
+
+#plot(o3_df$mean_IO_O3_Summer, o3_df$difference)
+#plot(pm_df$mean_IO_PM_Summer, pm_df$difference)
+
+lm1 <- lm(difference~mean_IO_PM_Summer+mean_IO_O3_Summer, data = model_df)
+summary(lm1)
+
+lm2 <- lm(difference~mean_IO_O3_Summer, data = o3_df)
+summary(lm2)
+
+lm3 <- lm(difference~mean_IO_PM_Summer, data = pm_df)
+summary(lm3)
+
+#plot(lm1)
+
+# Spearman rank correlation between PM and survey change
+cor.test(model_df$mean_IO_PM_Summer, model_df$difference, method = "spearman")
+
+# Spearman rank correlation between O3 and survey change
+#cor.test(model_df$mean_IO_O3_Summer, model_df$difference, method = "spearman")
+
+
+# Spearman rank correlation between PM and survey change
+cor.test(pm_df$mean_IO_PM_Summer, pm_df$difference, method = "spearman")
+
+# Spearman rank correlation between O3 and survey change
+cor.test(o3_df$mean_IO_O3_Summer, o3_df$difference, method = "spearman")
+
+
+# test if rank of measurements is correlated with perceived risk change
+
+cor.test(rank(pm_df$mean_IO_PM_Summer), pm_df$difference)
+cor.test(rank(o3_df$mean_IO_O3_Summer), o3_df$difference)
+
+```
+
+We also ran a post-hoc analysis to explore the relationship the actual scores subjects received may have with their change in perceived risk. Linear models were built to explore if this relationship was significant and no significance was found (p-values = .18, .24, & .28). We further explored the relationship through Spearman ranked correlation tests, which test if there is ranked correlation between perceived risk scores differences and pollution level inside the house relative to outside for both PM2.5 and O3. The tests on PM2.5 and O3 gave p-values of .0095 and .2744 respectively. Based on these preliminary findings, it may be reasonable to conclude that learning of higher pollution levels in your house compared to others may be associated with higher perceived risk of that pollutant. Below are simple scatterplots not only showing raw pollutant measures and score differences in perceived risk scores, but also scatterplots of the ranked pollutant measure and ranked score differences for each participant for each pollutant. In Figure # we can see that in both plots there is a slight positive correlation between these variables. An important feature here is the outlier in both plots. We note that these 2 outliers are not the same subject and thus were not removed from analysis because they were not outliers systemically but only within a subset of the results. In Figure # we can see the strong ranked correlation between PM2.5 and score differences and the relatively weak correlation between ranked 03 and score differences.
+
+```{r}
+p1 <- ggplot(data = pm_df, aes(x = mean_IO_PM_Summer, y = difference)) +
+  geom_point() +
+  labs(
+    x = "PM2.5 Pollution Level",
+    y = "PM2.5 Risk Score Difference"
+  ) +
+  theme_minimal()
+
+p2 <- ggplot(data = o3_df, aes(x = mean_IO_O3_Summer, y = difference)) +
+  geom_point() + 
+  labs(
+    x = "O3 Pollution Level",
+    y = "O3 Risk Score Difference"
+  ) +
+  theme_minimal()
+
+library(patchwork)
+
+p1p2 <- p1 + p2
+p1p2
+
+p3 <- ggplot(data = pm_df, aes(x = rank(mean_IO_PM_Summer), y = rank(difference))) +
+  geom_point() +
+  labs(
+    x = "PM2.5 Pollution Level Rank",
+    y = "PM2.5 Risk Score Difference Rank"
+  ) +
+  theme_minimal()
+
+p4 <- ggplot(data = o3_df, aes(x = rank(mean_IO_O3_Summer), y = rank(difference))) +
+  geom_point() + 
+  labs(
+    x = "O3 Pollution Level Rank",
+    y = "O3 Risk Score Difference Rank"
+  ) +
+  theme_minimal()
+
+complete_plt <- p3 + p4
+complete_plt
+
+#ggsave("ranked_plots.jpeg", complete_plt, height = 5, width = 12)
+#ggsave("scatterplots.jpeg", p1p2, height = 5, width = 12)
+  
+```
