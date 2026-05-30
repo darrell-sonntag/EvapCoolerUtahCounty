@@ -189,31 +189,11 @@ write_csv(survey_aq, "./Processed Data/survey_aq_data.csv")
 
 names(survey_scores)
 
-## Take the average of Q15 and Q23, and Q16 and Q24 (they were intended to be differnet questions (the first about PM2.5 and the second about O3)
-## But we accidently used the same question about ozone for both. So we will average the two responses for each question to get a more accurate response.
-
-survey_scores_Q23 <- survey_scores |> 
-                          filter(QuestionID %in% c("Q15","Q23")) |> 
-                          group_by(HouseID, Survey, Construct, Construct_general, Pollutant) |>
-                          summarize(Score = mean(Score, na.rm=TRUE),
-                                    Score_mod = mean(Score_mod, na.rm=TRUE)) |>
-                          ungroup() |>
-                          mutate(QuestionID = "Q23") 
-
-survey_scores_Q24 <- survey_scores |> 
-                          filter(QuestionID %in% c("Q16","Q24")) |> 
-                          group_by(HouseID, Survey, Construct, Construct_general, Pollutant) |>
-                          summarize(Score = mean(Score, na.rm=TRUE),
-                                    Score_mod = mean(Score_mod, na.rm=TRUE)) |>
-                          ungroup() |>
-                          mutate(QuestionID = "Q24") 
+## Remove question 23 and 24 because Q15 and Q16 are accidental duplicates of Q23 and Q24 
 
 survey_diff <- survey_scores |> 
   filter(QuestionID %in% c(Q_K, Q_SS)) |> ## only knowledge and score questions
-  filter(!(QuestionID %in% c("Q15","Q16","Q23","Q24"))) |> ## remove Q15, Q16, Q23, Q24 since we are replacing them with the averaged versions
-  bind_rows(survey_scores_Q23, survey_scores_Q24) |> ## bring in the averaged versions
-  mutate(Score = ifelse(QuestionID %in% c('Q15','Q16'), NA,Score)) |> ## remove Q15 and Q16 responses
-  mutate(Score_mod = ifelse(QuestionID %in% c('Q15','Q16'), NA,Score_mod)) |> ## remove Q15 and Q16 responses
+  filter(!(QuestionID %in% c("Q23","Q24"))) |> ## remove Q23, Q24, since we are just using Q15 and Q16
   select(HouseID, Construct, Construct_general, Pollutant, Survey, QuestionID, Score, Score_mod) |>
   pivot_wider(names_from = Survey, values_from = c(Score, Score_mod)) |> 
   mutate(Score_Change = Score_Post_Intervention - Score_Pre_Intervention,
