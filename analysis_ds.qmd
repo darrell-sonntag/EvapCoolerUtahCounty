@@ -27,7 +27,7 @@ House 6 Pre-Intervention has NAs for Q12 and Q13. House 33 Pre-Intervention has 
 ```{r}
 
 library(tidyverse)
-
+library(ggsignif)
 # set theming
 
 theme_set(
@@ -137,7 +137,7 @@ names(threat_behavior_score_Q25_2)
 
 threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response), names_from = Survey, values_from = total_score) |> 
-  mutate(score_diff = Post_Intervention - Pre_Intervention) 
+  mutate(score_diff = Post_Intervention - Pre_Intervention) |> 
  filter(!is.na(score_diff))
 
 

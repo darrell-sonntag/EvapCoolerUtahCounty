@@ -34,6 +34,9 @@ survey_aq_updated |>
 # H19 pre-survey is missing behavior questions
 # H29 post-survey is missing behavior questions
 
+write_csv(survey_aq_updated, "./Processed Data/survey_aq_updated.csv")
+
+
 Q25_Q29_summarize <- survey_aq_updated |>
                     filter(QuestionID %in% c("Q25","Q29")) |>
                     group_by(QuestionID, Survey, ac.type) |>
@@ -72,27 +75,6 @@ names(survey_behavior_diff)
 
 ## H14 is the only home that changed their response to Q25
 ## They changed from changing behavior when air quality is poor, to not changing their behavior.
-
-## Conduct a t-test if the change in behavior is significant
-
-behavior_ttest <- survey_behavior_diff %>%
-  group_by(QuestionID) %>%
-  summarise(
-    t_test = list(t.test(Response_Change, mu = 0)), homes = n(),
-    n=sum(!is.na(Response_Change)),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    t_statistic = map_dbl(t_test, ~ .x$statistic),
-    p_value     = map_dbl(t_test, ~ .x$p.value),
-    mean        = map_dbl(t_test, ~ .x$estimate),
-    conf_low    = map_dbl(t_test, ~ .x$conf.int[1]),
-    conf_high   = map_dbl(t_test, ~ .x$conf.int[2]),
-    significant = p_value < 0.05
-  ) %>%
-  select(-t_test)
-
-View(behavior_ttest)
 
 ## summarize
 
