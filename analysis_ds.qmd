@@ -60,10 +60,6 @@ write_csv(fa_df_imputed, "factor_analysis_df.csv")
 
 ```
 
-
-
-
-
 ```{r}
 
 ## relationship with behavior change, threat and knowledge
@@ -87,6 +83,9 @@ model_df_long <- fa_df_imputed_29 %>%
   mutate(total_score =  rowSums(across(Q09:Q22))) %>%
   select(HouseID, Survey, total_score) 
 
+```
+
+```{r}
 
 ## merge some of the questions back into the main dataset to have the updated behavior questions in the main dataset for analysis
 
@@ -94,15 +93,257 @@ model_df_long <- fa_df_imputed_29 %>%
 
 survey_aq_updated <- read_csv("./Processed Data/survey_aq_updated.csv")
 
-
 names(survey_aq_updated)
 
 behavior_df <- survey_aq_updated %>%
   filter(QuestionID %in% c("Q25", "Q29")) %>%
   select(HouseID, Survey, ac.type, QuestionID, Response,mean_IO_PM_Summer,mean_IO_O3_Summer)
 
+## get metadata 
+
+metadata <- behavior_df %>%
+  filter(QuestionID %in% c("Q25")) %>%
+  filter(Survey == "Pre_Intervention") %>%
+  select(HouseID, ac.type)
+
+```
 
 
+Look at change in knowledge vs. change in threats, create a dataframe that has the imputed risk responses and the knowledge scores.
+
+```{r}
+## combine fa_df_imputed with the knowledge scores 
+
+names(fa_df_imputed)
+names(knowledge_df)
+names(knowledge03_df)
+
+Create risk scores from fa_df_imputed by the different categories and PM levels. 
+
+Then merge that to the knowledge scores. 
+
+fa_df_imputed_scores <- fa_df_imputed %>%  
+  mutate(PM2.5_susceptibility_score = rowSums(across(c(Q09,Q10,Q11,Q13)))/(5*4), # divide by total possible score for these questions to get a proportion
+         O3_susceptibility_score = rowSums(across(c(Q17,Q18,Q19,Q21)))/(5*4),
+         PM2.5_severity_score = rowSums(across(c(Q12,Q14)))/(5*2),
+         O3_severity_score = rowSums(across(c(Q15,Q16,Q20,Q22)))/(5*4),
+         threat_score = (PM2.5_susceptibility_score + O3_susceptibility_score + PM2.5_severity_score + O3_severity_score)/4) # average of the 4 scores to get an overall threat score
+
+risk_diff <- fa_df_imputed_scores |> 
+  select(HouseID, Survey, O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, threat_score) |>
+  pivot_longer(cols = c(O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, threat_score), names_to = 'type', values_to = 'score') |> 
+  pivot_wider(id_cols = c(HouseID,type), names_from = Survey, values_from = score) |>
+  mutate(risk_diff = `Post_Intervention` - `Pre_Intervention`) |>
+  select(HouseID, type, risk_diff) |> 
+  pivot_wider(id_cols = HouseID, names_from = type, values_from = risk_diff) 
+
+threat_knowledge_df <- risk_diff %>%
+  left_join(knowledge_df |> select(HouseID, difference) |> rename(knowledge_total_diff = difference), by = c("HouseID")) |> 
+  left_join(knowledge03_df |> select(HouseID, difference) |> rename(knowledge_O3_diff = difference), by = c("HouseID")) |> 
+  left_join(knowledgepm_df |> select(HouseID, difference) |> rename(knowledge_PM_diff = difference), by = c("HouseID")) |> 
+  left_join(metadata, by = "HouseID") |> 
+  rename(Total_threat_score = threat_score) 
+
+```
+
+
+Make graphs between difference in knowledge and threat scores
+
+Total knowledge and total threat
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+# --- Function ---
+plot_knowledge_threat <- function(df, x_var, y_var, x_label, y_label) {
+  
+  lm_fit     <- lm(reformulate(x_var, y_var), data = df)
+  lm_summary <- summary(lm_fit)
+  p_val      <- lm_summary$coefficients[2, 4]
+  r_sq       <- lm_summary$r.squared
+  
+  p_label <- if (p_val < 0.001) {
+    sprintf("R² = %.3f, p < 0.001", r_sq)
+  } else {
+    sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
+  }
+  
+  ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(shape = ac.type, color = ac.type)) +
+    geom_smooth(method = "lm", se = TRUE, color = "black") +
+    annotate(
+      "text",
+      x = Inf, y = Inf,
+      label = p_label,
+      hjust = 1.05, vjust = 1.5,
+      size = 3, fontface = "italic"
+    ) +
+    labs(x = x_label, y = y_label, color = "House Type", shape = "House Type") +
+    scale_color_manual(values = okabe_ito, name = "House Type") +
+    scale_shape_manual(values = c(16, 17), name = "House Type") +
+    theme_bw() +
+    theme(legend.position = "none")  # suppress per-panel legends; add combined below
+}
+
+# --- Define variable pairs & axis labels ---
+plot_specs <- list(
+  list(x = "knowledge_total_diff", y = "Total_threat_score",
+       xl = "Total Knowledge Score",       yl = "Total Threat Score"),
+  list(x = "knowledge_O3_diff",    y = "O3_susceptibility_score",
+       xl = "O3 Knowledge Score",          yl = "O3 Susceptibility Score"),
+  list(x = "knowledge_O3_diff",    y = "O3_severity_score",
+       xl = "O3 Knowledge Score",          yl = "O3 Severity Score"),
+  list(x = "knowledge_PM_diff",    y = "PM2.5_susceptibility_score",
+       xl = "PM2.5 Knowledge Score",       yl = "PM2.5 Susceptibility Score"),
+  list(x = "knowledge_PM_diff",    y = "PM2.5_severity_score",
+       xl = "PM2.5 Knowledge Score",       yl = "PM2.5 Severity Score")
+)
+
+# --- Build plots ---
+plots <- lapply(plot_specs, function(s) {
+  plot_knowledge_threat(threat_knowledge_df, s$x, s$y, s$xl, s$yl)
+})
+
+# --- Extract shared legend from one plot (re-enable legend temporarily) ---
+legend_plot <- plots[[1]] + theme(legend.position = "bottom")
+shared_legend <- cowplot::get_legend(legend_plot)
+
+# --- Combine with patchwork + shared legend ---
+combined <- (plots[[1]] | plot_spacer()) / (plots[[2]] | plots[[3]]) /
+            (plots[[4]] | plots[[5]] ) 
+
+
+final_plot <- combined + 
+  plot_layout(guides = "collect") &   
+  theme(legend.position = "right")
+
+final_plot
+
+ggsave(
+  plot = final_plot,
+  filename = "./Graphics/knowledge_threat_combined.jpeg",
+  width = 7, height = 10, dpi = 300, units = "in", bg = "white"
+)
+```
+
+
+```{r}
+
+# Fit the model to extract p-value
+lm_fit <- lm(threat_score ~ threat_score, data = threat_knowledge_df)
+lm_summary <- summary(lm_fit)
+
+# Extract p-value for the slope
+p_val <- lm_summary$coefficients[2, 4]
+r_sq   <- lm_summary$r.squared
+
+# Format label
+p_label <- if (p_val < 0.001) {
+  sprintf("R² = %.3f, p < 0.001", r_sq)
+} else {
+  sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
+}
+
+ggplot(threat_knowledge_df, aes(x = threat_score, y = PM2.5_susceptibility_score)) +
+  geom_point(aes(shape = ac.type, color = ac.type)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate(
+    "text",
+    x = Inf, y = Inf,
+    label = p_label,
+    hjust = 1.05, vjust = 1.5,
+    size = 3.5,
+    fontface = "italic"
+  ) +
+  labs(
+    x = "PM2.5 Knowledge Score",
+    y = "PM2.5 Susceptibility Score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  scale_color_manual(values = okabe_ito, name = "House Type") +
+  scale_shape_manual(values = c(16, 17), name = "House Type") +
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white",
+       filename = "./Graphics/PM_knowledge_susceptibility_diff_plot.jpeg")
+
+
+names(threat_knowledge_df)
+
+## Compare linear model between knowledge scores and threat scores.
+
+ggplot(threat_knowledge_df, aes(x = knowledge_total_diff, y = threat_score)) +
+   geom_point(aes(shape = ac.type, color = ac.type))+
+   geom_smooth(method = "lm", se = TRUE, color = "black") +
+  labs(
+    x = "Knowledge Score",
+    y = "Threat Score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  #scale_color_grey()+
+ scale_color_manual(values = okabe_ito, name = "House Type") +
+ scale_shape_manual(values = c(16,17), name = "House Type") +
+   #guides(shape = "none") + 
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_threat_diff_plot.jpeg")
+
+```
+
+PM knowledge and PM threat
+
+```{r}
+
+# Fit the model to extract p-value
+lm_fit <- lm(PM2.5_susceptibility_score ~ knowledge_PM_diff, data = threat_knowledge_df)
+lm_summary <- summary(lm_fit)
+
+# Extract p-value for the slope
+p_val <- lm_summary$coefficients[2, 4]
+r_sq   <- lm_summary$r.squared
+
+# Format label
+p_label <- if (p_val < 0.001) {
+  sprintf("R² = %.3f, p < 0.001", r_sq)
+} else {
+  sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
+}
+
+ggplot(threat_knowledge_df, aes(x = knowledge_PM_diff, y = PM2.5_susceptibility_score)) +
+  geom_point(aes(shape = ac.type, color = ac.type)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate(
+    "text",
+    x = Inf, y = Inf,
+    label = p_label,
+    hjust = 1.05, vjust = 1.5,
+    size = 3.5,
+    fontface = "italic"
+  ) +
+  labs(
+    x = "PM2.5 Knowledge Score",
+    y = "PM2.5 Susceptibility Score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  scale_color_manual(values = okabe_ito, name = "House Type") +
+  scale_shape_manual(values = c(16, 17), name = "House Type") +
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white",
+       filename = "./Graphics/PM_knowledge_susceptibility_diff_plot.jpeg")
+```
+
+
+
+
+
+
+
+```{r}
 
 
 threat_behavior_score_Q25 <- model_df_long %>%
@@ -216,9 +457,7 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 ```
 
-
-Make a plot showing the difference in Threat score by behavior change group, with lines connecting the same HouseID across surveys.
-(Figure 2 for Q25)
+Make a plot showing the difference in Threat score by behavior change group, with lines connecting the same HouseID across surveys. (Figure 2 for Q25)
 
 ```{r}
 
@@ -289,8 +528,6 @@ ggsave("./Graphics/diff_threat_by_behavior.tiff",
        compression = "lzw")
 ```
 
-
-
 ```{r}
 # overall knowledge
 
@@ -355,17 +592,6 @@ ggplot(threat_behavior_knowledge_Q29, aes(x = Response, y = know_score, color = 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
 
 ```
-
-
-
-
-
-
-
-
-
-
-
 
 ```{r}
 library(broom)
@@ -454,8 +680,6 @@ write_csv(lm_threat_knowledge_behavior, "./Processed Data/lm_threat_knowledge_be
 
 ```
 
-
-
 ```{r}
 
 ## Compare linear model between knowledge scores and threat scores.
@@ -486,8 +710,6 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 
 ```
-
-
 
 ```{r}
 
@@ -553,6 +775,7 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 
 ```
+
 ```{r}
 # Linear models: Air Quality ~ Threat Score
 library(broom)
