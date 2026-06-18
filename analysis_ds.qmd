@@ -76,8 +76,15 @@ fa_df_29 <- df_raw %>%
 
 ## let's use House ID 29, even though we didn't use it in the factor analysis. 
 
+df_non_threat_questions <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  filter(!QuestionID %in% paste0("Q", sprintf("%02d", 9:22))) %>%
+  pivot_wider(id_cols = c(HouseID, Survey), names_from = QuestionID, values_from = Score_mod)
+
+
 fa_df_imputed_29 <- fa_df_imputed |> 
-  bind_rows(fa_df_29)
+  bind_rows(fa_df_29) |>  ## add in the knowledge questions back in. 
+  left_join(df_non_threat_questions, by = c("HouseID", "Survey"))  ## add in the non-threat questions back in.
 
 model_df_long <- fa_df_imputed_29 %>% 
   mutate(total_score =  rowSums(across(Q09:Q22))) %>%
@@ -122,16 +129,28 @@ Create risk scores from fa_df_imputed by the different categories and PM levels.
 
 Then merge that to the knowledge scores. 
 
-fa_df_imputed_scores <- fa_df_imputed %>%  
+fa_df_imputed_scores <-  fa_df_imputed_29 %>%  
   mutate(PM2.5_susceptibility_score = rowSums(across(c(Q09,Q10,Q11,Q13)))/(5*4), # divide by total possible score for these questions to get a proportion
          O3_susceptibility_score = rowSums(across(c(Q17,Q18,Q19,Q21)))/(5*4),
          PM2.5_severity_score = rowSums(across(c(Q12,Q14)))/(5*2),
          O3_severity_score = rowSums(across(c(Q15,Q16,Q20,Q22)))/(5*4),
-         threat_score = (PM2.5_susceptibility_score + O3_susceptibility_score + PM2.5_severity_score + O3_severity_score)/4) # average of the 4 scores to get an overall threat score
+         PM2.5_threat_score = rowSums(across(c(Q09,Q10,Q11,Q13,Q12,Q14)))/(5*6),
+         O3_threat_score = rowSums(across(c(Q17,Q18,Q19,Q21,Q15,Q16,Q20,Q22)))/(5*8),
+         ) # 
 
-risk_diff <- fa_df_imputed_scores |> 
-  select(HouseID, Survey, O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, threat_score) |>
-  pivot_longer(cols = c(O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, threat_score), names_to = 'type', values_to = 'score') |> 
+
+df_pre_post_threat <- fa_df_imputed_scores |> 
+  select(HouseID, Survey, O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score) |>
+  pivot_longer(cols = c(O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score), names_to = 'type', values_to = 'score') |> 
+  left_join(metadata, by = "HouseID") |> 
+  mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), labels = c("Pre-Intervention", "Post-Intervention"), ordered = TRUE)) |> 
+  mutate(type = factor(type, levels = c("O3_susceptibility_score", "O3_severity_score", "O3_threat_score","PM2.5_susceptibility_score", "PM2.5_severity_score", "PM2.5_threat_score" ),
+                       labels = c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat"),
+                       ordered = TRUE))
+
+
+
+risk_diff <- df_pre_post_threat |> 
   pivot_wider(id_cols = c(HouseID,type), names_from = Survey, values_from = score) |>
   mutate(risk_diff = `Post_Intervention` - `Pre_Intervention`) |>
   select(HouseID, type, risk_diff) |> 
@@ -145,6 +164,40 @@ threat_knowledge_df <- risk_diff %>%
   rename(Total_threat_score = threat_score) 
 
 ```
+
+
+Make Figure S-1 (points and lines showing changes in threat before and after faceted by construct/pollutant)
+
+```{r}
+
+names(df_pre_post_threat)
+
+## geom_point and geom_line
+ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
+    geom_point(width=0.3,height=0, aes(shape = ac.type, color = ac.type))+
+   geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+  facet_wrap(~type) +
+  labs(
+    x = "Survey",
+    y = "Threat score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+ scale_color_manual(values = okabe_ito, name = "House Type") +
+ scale_shape_manual(values = c(16, 17), name = "House Type") 
+
+  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
+
+
+
+```
+
+
+
+
+
 
 
 Make graphs between difference in knowledge and threat scores
@@ -476,7 +529,7 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = total_score)) +
  scale_color_manual(values = okabe_ito, name = "Behavior") +
   theme_bw()
 
-  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot.jpeg")
+  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot_lines.jpeg")
 
 
 ```
