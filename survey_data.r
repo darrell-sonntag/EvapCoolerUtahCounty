@@ -118,10 +118,14 @@ names(survey_grade)
 Q_SS <- c("Q09","Q10","Q11","Q12","Q13","Q14","Q15","Q16","Q17","Q18","Q19","Q20",
           "Q21","Q22","Q23","Q24","Q25","Q29")
 
+names(survey)
+
 survey_scores <- survey |> 
               filter(!(QuestionID %in% Q_K)) |> ## non-knowledge questions
               left_join(answer_key, by = "QuestionID") |>
               bind_rows(survey_grade) |> 
+              mutate(Response = ifelse(HouseID == "H31" & QuestionID == "Q25" & Survey == "Post_Intervention", "2", Response)) |> ## H31 responded both 1,2 for the post-interview, and then responded to why they don't change their behavior in Q26.
+## Change the response for H31, Post-survey, Q25 from 1,2 to be 2 (no change in behavior)
               mutate(Score = case_when(
                 QuestionID %in% Q_K ~ as.numeric(Grade),  ## for knowledge questions, use the grade as the score
                 QuestionID %in% Q_SS ~ as.numeric(Response), ## for SS questions, use the response as the score

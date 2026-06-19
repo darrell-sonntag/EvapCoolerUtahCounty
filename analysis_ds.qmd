@@ -35,7 +35,16 @@ theme_set(
 )
 
 ## read in updated survey_aq_data from survey_behavior.r to have the updates to the behavior questions
-df_raw <- read_csv("./Processed Data/survey_aq_updated.csv")
+df_raw <- read_csv("./Processed Data/survey_aq_updated.csv") |> 
+    mutate(Score_mod = case_when(QuestionID %in% c('Q01','Q02','Q03','Q04','Q05','Q06','Q07','Q08') & HouseID == "H29"  & Survey == "Post_Intervention" ~ NA, 
+                                TRUE ~ Score_mod)) ## For some reason the missing knowledge questions from H29 from the post-surveywere turned into 0, turn back to NA
+
+# Changes single response questions from -1 to 0
+# add total knowledge score test to the graphic
+
+qs_not_to_change <- c("Q04", "Q08")
+
+
 
 # create dataframe used for factor analysis
 fa_df <- df_raw %>%
@@ -74,17 +83,22 @@ fa_df_29 <- df_raw %>%
   pivot_wider(id_cols = c(HouseID, Survey), names_from = QuestionID, values_from = Score_mod) |> 
   filter(HouseID == "H29")
 
-## let's use House ID 29, even though we didn't use it in the factor analysis. 
+## Grab the other questions
 
 df_non_threat_questions <- df_raw %>%
   select(HouseID, Survey, QuestionID, Score_mod) %>%
   filter(!QuestionID %in% paste0("Q", sprintf("%02d", 9:22))) %>%
-  pivot_wider(id_cols = c(HouseID, Survey), names_from = QuestionID, values_from = Score_mod)
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) |> # # Changes single response knowledge questions from -1 to 0
+  pivot_wider(id_cols = c(HouseID, Survey), names_from = QuestionID, values_from = Score_mod)  
+
 
 
 fa_df_imputed_29 <- fa_df_imputed |> 
   bind_rows(fa_df_29) |>  ## add in the knowledge questions back in. 
   left_join(df_non_threat_questions, by = c("HouseID", "Survey"))  ## add in the non-threat questions back in.
+  
+
 
 model_df_long <- fa_df_imputed_29 %>% 
   mutate(total_score =  rowSums(across(Q09:Q22))) %>%
@@ -108,10 +122,10 @@ behavior_df <- survey_aq_updated %>%
 
 ## get metadata 
 
-metadata <- behavior_df %>%
+metadata <- survey_aq_updated %>%
   filter(QuestionID %in% c("Q25")) %>%
   filter(Survey == "Pre_Intervention") %>%
-  select(HouseID, ac.type)
+  select(HouseID, ac.type, mean_IO_PM_Summer,mean_IO_O3_Summer)
 
 ```
 
@@ -121,13 +135,9 @@ Look at change in knowledge vs. change in threats, create a dataframe that has t
 ```{r}
 ## combine fa_df_imputed with the knowledge scores 
 
-names(fa_df_imputed)
-names(knowledge_df)
-names(knowledge03_df)
+#Create risk scores from fa_df_imputed by the different categories and PM levels. 
 
-Create risk scores from fa_df_imputed by the different categories and PM levels. 
-
-Then merge that to the knowledge scores. 
+#then merge that to the knowledge scores. 
 
 fa_df_imputed_scores <-  fa_df_imputed_29 %>%  
   mutate(PM2.5_susceptibility_score = rowSums(across(c(Q09,Q10,Q11,Q13)))/(5*4), # divide by total possible score for these questions to get a proportion
@@ -136,41 +146,46 @@ fa_df_imputed_scores <-  fa_df_imputed_29 %>%
          O3_severity_score = rowSums(across(c(Q15,Q16,Q20,Q22)))/(5*4),
          PM2.5_threat_score = rowSums(across(c(Q09,Q10,Q11,Q13,Q12,Q14)))/(5*6),
          O3_threat_score = rowSums(across(c(Q17,Q18,Q19,Q21,Q15,Q16,Q20,Q22)))/(5*8),
+         threat_score = rowSums(across(c(Q09:Q22)))/(5*14),
+         PM2.5_knowledge_score = rowSums(across(c(Q01:Q04))), 
+         O3_knowledge_score = rowSums(across(c(Q05:Q08))),
+         knowledge_score = rowSums(across(c(Q01:Q08)))
          ) # 
 
 
-df_pre_post_threat <- fa_df_imputed_scores |> 
-  select(HouseID, Survey, O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score) |>
-  pivot_longer(cols = c(O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score), names_to = 'type', values_to = 'score') |> 
+df_pre_post_scores <- fa_df_imputed_scores |> 
+  select(HouseID, Survey, O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score,threat_score, PM2.5_knowledge_score, O3_knowledge_score, knowledge_score) |>
+  pivot_longer(cols = c(O3_susceptibility_score, O3_severity_score, PM2.5_susceptibility_score, PM2.5_severity_score, PM2.5_threat_score, O3_threat_score, threat_score, PM2.5_knowledge_score, O3_knowledge_score, knowledge_score), names_to = 'type', values_to = 'score') |> 
   left_join(metadata, by = "HouseID") |> 
   mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), labels = c("Pre-Intervention", "Post-Intervention"), ordered = TRUE)) |> 
-  mutate(type = factor(type, levels = c("O3_susceptibility_score", "O3_severity_score", "O3_threat_score","PM2.5_susceptibility_score", "PM2.5_severity_score", "PM2.5_threat_score" ),
-                       labels = c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat"),
+  mutate(type = factor(type, levels = c("O3_susceptibility_score", "O3_severity_score", "O3_threat_score","PM2.5_susceptibility_score", "PM2.5_severity_score", "PM2.5_threat_score","threat_score","knowledge_score", "O3_knowledge_score", "PM2.5_knowledge_score"),
+                       labels = c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat","Total Threat", "Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge"),
                        ordered = TRUE))
 
 
 
-risk_diff <- df_pre_post_threat |> 
-  pivot_wider(id_cols = c(HouseID,type), names_from = Survey, values_from = score) |>
-  mutate(risk_diff = `Post_Intervention` - `Pre_Intervention`) |>
-  select(HouseID, type, risk_diff) |> 
-  pivot_wider(id_cols = HouseID, names_from = type, values_from = risk_diff) 
+df_diff <- df_pre_post_scores |> 
+  pivot_wider(id_cols = c(HouseID,type,ac.type,mean_IO_PM_Summer,mean_IO_O3_Summer), names_from = Survey, values_from = score) |>
+  mutate(diff_score = `Post-Intervention` - `Pre-Intervention`) |>
+  select(HouseID, ac.type, type, mean_IO_PM_Summer,mean_IO_O3_Summer ,diff_score) |> 
+  pivot_wider(id_cols = c(HouseID,ac.type,mean_IO_PM_Summer,mean_IO_O3_Summer), names_from = type, values_from = diff_score) 
 
-threat_knowledge_df <- risk_diff %>%
-  left_join(knowledge_df |> select(HouseID, difference) |> rename(knowledge_total_diff = difference), by = c("HouseID")) |> 
-  left_join(knowledge03_df |> select(HouseID, difference) |> rename(knowledge_O3_diff = difference), by = c("HouseID")) |> 
-  left_join(knowledgepm_df |> select(HouseID, difference) |> rename(knowledge_PM_diff = difference), by = c("HouseID")) |> 
-  left_join(metadata, by = "HouseID") |> 
-  rename(Total_threat_score = threat_score) 
 
 ```
-
 
 Make Figure S-1 (points and lines showing changes in threat before and after faceted by construct/pollutant)
 
 ```{r}
 
-names(df_pre_post_threat)
+df_pre_post_threat <- df_pre_post_scores |> 
+  filter(type %in% c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat"))
+   
+   
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#000000",
+               "#332288", "#117733", "#44AA99", "#88CCEE",
+               "#DDCC77", "#882255")
+
 
 ## geom_point and geom_line
 ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
@@ -195,10 +210,252 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
 ```
 
 
+```{r}
+
+# --- Shared Deming regression helpers ---
+
+# Bootstrap 95% CI for mean prediction (like nlsBootPredict)
+boot_ci <- function(x, y, x_grid, niter = 500) {
+  set.seed(42)
+  boot_mat <- replicate(niter, {
+    idx <- sample(length(x), replace = TRUE)
+    fit <- tryCatch(
+      deming::deming(y[idx] ~ x[idx]),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) rep(NA_real_, length(x_grid))
+    else fit$coefficients[1] + fit$coefficients[2] * x_grid
+  })
+  data.frame(
+    `2.5%`  = apply(boot_mat, 1, quantile, 0.025, na.rm = TRUE),
+    `97.5%` = apply(boot_mat, 1, quantile, 0.975, na.rm = TRUE),
+    check.names = FALSE
+  )
+}
+
+# One scatter panel from long-format df_pre_post_scores
+# x_scale / y_scale: optional ggplot scale objects for axis limits/breaks
+make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
+                               xlim = NULL, ylim = NULL,
+                               x_breaks = NULL, y_breaks = NULL,
+                               niter = 500, show_ci = TRUE) {
+  d <- df |> filter(type %in% c(x_type, y_type))
+  if (!is.null(survey_label)) d <- d |> filter(Survey == survey_label)
+  d <- d |>
+    mutate(type = as.character(type)) |>
+    pivot_wider(id_cols = c(HouseID, ac.type), names_from = type, values_from = score) |>
+    rename(x_val = all_of(x_type), y_val = all_of(y_type))
+
+  dem_fit   <- deming::deming(y_val ~ x_val, data = d)
+  intercept <- dem_fit$coefficients[1]
+  slope     <- dem_fit$coefficients[2]
+  slope_se  <- dem_fit$se[2]
+  t_stat    <- slope / slope_se
+  p_val     <- 2 * pt(abs(t_stat), df = nrow(d) - 2, lower.tail = FALSE)
+  r_sq      <- cor(d$x_val, d$y_val, use = "complete.obs")^2
+  p_label   <- if (p_val < 0.001) sprintf("R² = %.3f, p < 0.001", r_sq)
+               else sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
+
+  x_seq     <- seq(min(d$x_val, na.rm = TRUE), max(d$x_val, na.rm = TRUE), length.out = 50)
+  ci        <- boot_ci(d$x_val, d$y_val, x_seq, niter)
+  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), ci)
+
+  p <- ggplot(d, aes(x = x_val, y = y_val)) +
+    { if (show_ci) geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
+                inherit.aes = FALSE, alpha = 0.3, fill = "grey") } +
+    geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
+    geom_point(aes(shape = ac.type, color = ac.type)) +
+    annotate("text", x = Inf, y = Inf, label = p_label,
+             hjust = 1.05, vjust = 1.5, size = 3, fontface = "italic") +
+    labs(title = survey_label,
+         x = if (is.null(survey_label)) paste("Difference in", x_type) else paste(x_type, "Score"),
+         y = if (is.null(survey_label)) paste("Difference in", y_type) else paste(y_type, "Score"),
+         color = "House Type", shape = "House Type") +
+    scale_color_manual(values = okabe_ito, name = "House Type") +
+    scale_shape_manual(values = c(16, 17), name = "House Type") +
+    scale_x_continuous(breaks = x_breaks, labels = scales::label_number()) +
+    scale_y_continuous(breaks = y_breaks, labels = scales::label_number()) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    theme_bw() +
+    theme(legend.position = "none")
+
+  p
+}
+
+# One scatter panel from wide-format df_diff with column names as x/y (difference scores)
+make_deming_panel_diff <- function(df, x_var, y_var,
+                                   xlim = NULL, ylim = NULL,
+                                   x_breaks = NULL, y_breaks = NULL) {
+  x <- df[[x_var]]
+  y <- df[[y_var]]
+
+  dem_fit   <- deming::deming(y ~ x)
+  intercept <- dem_fit$coefficients[1]
+  slope     <- dem_fit$coefficients[2]
+  slope_se  <- dem_fit$se[2]
+  t_stat    <- slope / slope_se
+  p_val     <- 2 * pt(abs(t_stat), df = length(na.omit(x)) - 2, lower.tail = FALSE)
+  r_sq      <- cor(x, y, use = "complete.obs")^2
+  p_label   <- if (p_val < 0.001) sprintf("R² = %.3f, p < 0.001", r_sq)
+               else sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
+
+  x_seq     <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 50)
+  ci        <- boot_ci(x, y, x_seq)
+  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), ci)
+
+  ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
+                inherit.aes = FALSE, alpha = 0.3, fill = "grey") +
+    geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
+    geom_point(aes(shape = ac.type, color = ac.type)) +
+    annotate("text", x = Inf, y = Inf, label = p_label,
+             hjust = 1.05, vjust = 1.5, size = 3, fontface = "italic") +
+    labs(x = paste("Difference in", x_var), y = paste("Difference in", y_var),
+         color = "House Type", shape = "House Type") +
+    scale_color_manual(values = okabe_ito, name = "House Type") +
+    scale_shape_manual(values = c(16, 17), name = "House Type") +
+    scale_x_continuous(breaks = x_breaks, labels = scales::label_number()) +
+    scale_y_continuous(breaks = y_breaks, labels = scales::label_number()) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    theme_bw() +
+    theme(legend.position = "none", axis.title = element_text(size = 9))
+}
+
+```
+
+
+Compare the correlation between Severity and Susceptibility, and the correlation between Threat and Knowledge, for both O3 and PM2.5, before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
+```{r}
+
+xlim     <- c(0.2, 0.8)
+ylim     <- c(0.3, 1.0)
+x_breaks <- seq(0.2, 0.8, by = 0.2)
+y_breaks <- seq(0.2, 1.0, by = 0.2)
+
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+
+final_plot <- (p1 | p2) / (p3 | p4) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_plot.jpeg",
+       width = 8, height = 8, dpi = 300, units = "in", bg = "white")
+
+```
+
+
+
+```{r}
+
+df_pre_post_knowledge <- df_pre_post_scores |> 
+  filter(type %in% c("Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge"))
+
+set.seed(23)   
+## geom_point and geom_line
+ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
+  geom_jitter(width=0.01,height=0, aes(shape = ac.type, color = ac.type), alpha = 0.5)+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+  facet_wrap(type~.,nrow = 1, scales = "free_y") +
+  labs(
+    x = "Survey",
+    y = "Knowledge score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+ scale_color_manual(values = okabe_ito, name = "House Type") +
+ scale_shape_manual(values = c(16, 17), name = "House Type") 
+
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_overall_change_lines.jpeg")
 
 
 
 
+```
+
+
+
+
+
+```{r}
+
+xlim     <- c(-0.2, 4)
+ylim     <- c(0.2, 0.8)
+x_breaks <- seq(0, 4, by = 0.5)
+y_breaks <- seq(0.2, 0.8, by = 0.2)
+
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge",    "O3 Threat",    "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge",    "O3 Threat",    "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p3 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+
+final_plot <- (p1 | p2) / (p3 | p4) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+ggsave(plot = final_plot, filename = "./Graphics/knowledge_threat_plot.jpeg",
+       width = 8, height = 8, dpi = 300, units = "in", bg = "white")
+
+```
+
+
+O3 threats vs PM2.5 Threats
+
+```{r}
+
+xlim     <- c(-0.2, 4)
+ylim     <- c(0.2, 0.8)
+x_breaks <- seq(0, 4, by = 0.5)
+y_breaks <- seq(0.2, 0.8, by = 0.2)
+
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p4 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p6 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+
+final_plot <- (p1 | p2 | p3) / (p4 | p5 | p6) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+ggsave(plot = final_plot, filename = "./Graphics/O3_knowledge_threat_plot.jpeg",
+       width = 7, height = 6, dpi = 300, units = "in", bg = "white")
+
+```
+
+Now PM2.5
+
+```{r}
+
+xlim     <- c(1, 4)
+ylim     <- c(0.2, 1.0)
+x_breaks <- seq(1, 4, by = 0.5)
+y_breaks <- seq(0.2, 1.0, by = 0.2)
+
+p1 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p3 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p5 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p6 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+
+final_plot <- (p1 | p2 | p3) / (p4 | p5 | p6) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+ggsave(plot = final_plot, filename = "./Graphics/PM2.5_knowledge_threat_plot.jpeg",
+       width = 7, height = 6, dpi = 300, units = "in", bg = "white")
+
+```
+
+
+
+Plot O3 knowledge vs. O3 threat, and PM2.5 knowledge vs. PM2.5 threat, for pre and post intervention surveys, with linear regression lines and R²/p-value annotations.
 
 Make graphs between difference in knowledge and threat scores
 
@@ -208,247 +465,76 @@ Total knowledge and total threat
 library(ggplot2)
 library(patchwork)
 
-# --- Function ---
-plot_knowledge_threat <- function(df, x_var, y_var, x_label, y_label) {
-  
-  lm_fit     <- lm(reformulate(x_var, y_var), data = df)
-  lm_summary <- summary(lm_fit)
-  p_val      <- lm_summary$coefficients[2, 4]
-  r_sq       <- lm_summary$r.squared
-  
-  p_label <- if (p_val < 0.001) {
-    sprintf("R² = %.3f, p < 0.001", r_sq)
-  } else {
-    sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
-  }
-  
-  ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_point(aes(shape = ac.type, color = ac.type)) +
-    geom_smooth(method = "lm", se = TRUE, color = "black") +
-    annotate(
-      "text",
-      x = Inf, y = Inf,
-      label = p_label,
-      hjust = 1.05, vjust = 1.5,
-      size = 3, fontface = "italic"
-    ) +
-    labs(x = x_label, y = y_label, color = "House Type", shape = "House Type") +
-    scale_color_manual(values = okabe_ito, name = "House Type") +
-    scale_shape_manual(values = c(16, 17), name = "House Type") +
-    theme_bw() +
-    theme(legend.position = "none")  # suppress per-panel legends; add combined below
-}
-
-# --- Define variable pairs & axis labels ---
 plot_specs <- list(
-  list(x = "knowledge_total_diff", y = "Total_threat_score",
-       xl = "Total Knowledge Score",       yl = "Total Threat Score"),
-  list(x = "knowledge_O3_diff",    y = "O3_susceptibility_score",
-       xl = "O3 Knowledge Score",          yl = "O3 Susceptibility Score"),
-  list(x = "knowledge_O3_diff",    y = "O3_severity_score",
-       xl = "O3 Knowledge Score",          yl = "O3 Severity Score"),
-  list(x = "knowledge_PM_diff",    y = "PM2.5_susceptibility_score",
-       xl = "PM2.5 Knowledge Score",       yl = "PM2.5 Susceptibility Score"),
-  list(x = "knowledge_PM_diff",    y = "PM2.5_severity_score",
-       xl = "PM2.5 Knowledge Score",       yl = "PM2.5 Severity Score")
+  list(x = "O3 Knowledge",    y = "O3 Susceptibility"),
+  list(x = "O3 Knowledge",    y = "O3 Severity"),
+  list(x = "O3 Knowledge",    y = "O3 Threat"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Susceptibility"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Severity"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Threat")
 )
 
-# --- Build plots ---
-plots <- lapply(plot_specs, function(s) {
-  plot_knowledge_threat(threat_knowledge_df, s$x, s$y, s$xl, s$yl)
-})
+xlim     <- c(-1, 3)
+ylim     <- c(-0.6, 0.4)
+x_breaks <- seq(-1, 3, by = 1)
+y_breaks <- seq(-0.6, 0.4, by = 0.2)
 
-# --- Extract shared legend from one plot (re-enable legend temporarily) ---
-legend_plot <- plots[[1]] + theme(legend.position = "bottom")
-shared_legend <- cowplot::get_legend(legend_plot)
+plots <- lapply(plot_specs, function(s)
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks))
 
-# --- Combine with patchwork + shared legend ---
-combined <- (plots[[1]] | plot_spacer()) / (plots[[2]] | plots[[3]]) /
-            (plots[[4]] | plots[[5]] ) 
+combined <- (plots[[1]] | plots[[2]] | plots[[3]]) /
+            (plots[[4]] | plots[[5]] | plots[[6]])
 
-
-final_plot <- combined + 
-  plot_layout(guides = "collect") &   
-  theme(legend.position = "right")
-
+final_plot <- combined +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 final_plot
 
-ggsave(
-  plot = final_plot,
-  filename = "./Graphics/knowledge_threat_combined.jpeg",
-  width = 7, height = 10, dpi = 300, units = "in", bg = "white"
-)
-```
-
-
-```{r}
-
-# Fit the model to extract p-value
-lm_fit <- lm(threat_score ~ threat_score, data = threat_knowledge_df)
-lm_summary <- summary(lm_fit)
-
-# Extract p-value for the slope
-p_val <- lm_summary$coefficients[2, 4]
-r_sq   <- lm_summary$r.squared
-
-# Format label
-p_label <- if (p_val < 0.001) {
-  sprintf("R² = %.3f, p < 0.001", r_sq)
-} else {
-  sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
-}
-
-ggplot(threat_knowledge_df, aes(x = threat_score, y = PM2.5_susceptibility_score)) +
-  geom_point(aes(shape = ac.type, color = ac.type)) +
-  geom_smooth(method = "lm", se = TRUE, color = "black") +
-  annotate(
-    "text",
-    x = Inf, y = Inf,
-    label = p_label,
-    hjust = 1.05, vjust = 1.5,
-    size = 3.5,
-    fontface = "italic"
-  ) +
-  labs(
-    x = "PM2.5 Knowledge Score",
-    y = "PM2.5 Susceptibility Score",
-    color = "Home Type",
-    shape = "AC Type"
-  ) +
-  scale_color_manual(values = okabe_ito, name = "House Type") +
-  scale_shape_manual(values = c(16, 17), name = "House Type") +
-  theme_bw()
-
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white",
-       filename = "./Graphics/PM_knowledge_susceptibility_diff_plot.jpeg")
-
-
-names(threat_knowledge_df)
-
-## Compare linear model between knowledge scores and threat scores.
-
-ggplot(threat_knowledge_df, aes(x = knowledge_total_diff, y = threat_score)) +
-   geom_point(aes(shape = ac.type, color = ac.type))+
-   geom_smooth(method = "lm", se = TRUE, color = "black") +
-  labs(
-    x = "Knowledge Score",
-    y = "Threat Score",
-    color = "Home Type",
-    shape = "AC Type"
-  ) +
-  #scale_color_grey()+
- scale_color_manual(values = okabe_ito, name = "House Type") +
- scale_shape_manual(values = c(16,17), name = "House Type") +
-   #guides(shape = "none") + 
-  theme_bw()
-
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_threat_diff_plot.jpeg")
-
-```
-
-PM knowledge and PM threat
-
-```{r}
-
-# Fit the model to extract p-value
-lm_fit <- lm(PM2.5_susceptibility_score ~ knowledge_PM_diff, data = threat_knowledge_df)
-lm_summary <- summary(lm_fit)
-
-# Extract p-value for the slope
-p_val <- lm_summary$coefficients[2, 4]
-r_sq   <- lm_summary$r.squared
-
-# Format label
-p_label <- if (p_val < 0.001) {
-  sprintf("R² = %.3f, p < 0.001", r_sq)
-} else {
-  sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
-}
-
-ggplot(threat_knowledge_df, aes(x = knowledge_PM_diff, y = PM2.5_susceptibility_score)) +
-  geom_point(aes(shape = ac.type, color = ac.type)) +
-  geom_smooth(method = "lm", se = TRUE, color = "black") +
-  annotate(
-    "text",
-    x = Inf, y = Inf,
-    label = p_label,
-    hjust = 1.05, vjust = 1.5,
-    size = 3.5,
-    fontface = "italic"
-  ) +
-  labs(
-    x = "PM2.5 Knowledge Score",
-    y = "PM2.5 Susceptibility Score",
-    color = "Home Type",
-    shape = "AC Type"
-  ) +
-  scale_color_manual(values = okabe_ito, name = "House Type") +
-  scale_shape_manual(values = c(16, 17), name = "House Type") +
-  theme_bw()
-
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white",
-       filename = "./Graphics/PM_knowledge_susceptibility_diff_plot.jpeg")
+ggsave(plot = final_plot, filename = "./Graphics/knowledge_threat_difference.jpeg",
+       width = 7, height = 5, dpi = 300, units = "in", bg = "white")
 ```
 
 
 
 
-
-
+Create a graph showing differences in thread perception by whether they make changes in their home. 
 
 ```{r}
 
-
-threat_behavior_score_Q25 <- model_df_long %>%
-  left_join(behavior_df, by = c("HouseID", "Survey")) |> 
-  mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), ordered = TRUE)) |>
-  filter(QuestionID == "Q25") |> 
-  mutate(Response = case_when(
-      Response == 1 ~ "Change",
-      Response == 2 ~ "No Change"
+threat_behavior_score <- fa_df_imputed_scores%>%
+  mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), labels = c("Pre-Intervention", "Post-Intervention"), ordered = TRUE)) |> 
+  left_join(metadata, by = "HouseID") |> 
+  mutate(Q25 = case_when(
+      Q25 == 2 ~ "Change",
+      Q25 == 1 ~ "No Change"
     )) |> 
+  mutate(Q29 = case_when(
+      Q29 == 2 ~ "Change",
+      Q29 == 1 ~ "No Change" )) |>
   mutate(sample = case_when(
     HouseID == "H05" ~ "Post-Intervention only",
     HouseID ==  "H19" ~ "Post-Intervention only",
     HouseID == 'H29' ~ "Pre-Intervention only",
-   TRUE ~ "Both" ))   |> 
-  filter(!is.na(Response)) 
-
+    HouseID == 'H31' ~ "Pre-Intervention only",
+   TRUE ~ "Both" ))   
   
-behavior_Q25_post <- threat_behavior_score_Q25 |>
-  filter(Survey == "Post_Intervention") |>
-  select(HouseID, Response) |> 
-  mutate(Post_response = Response ) |>
-  add_row(HouseID = "H29", Post_response = "No Change") |> 
-  select(-Response)
 
-threat_behavior_score_Q25_2 <- threat_behavior_score_Q25 |> 
-  left_join(behavior_Q25_post, by = "HouseID") 
+threat_behavior_score_Q25 <- threat_behavior_score |> 
+  filter(!is.na(Q25)) |> 
+  select(HouseID, Survey, ac.type, Q25, sample, threat_score) 
 
-names(threat_behavior_score_Q25)
-
-names(threat_behavior_score_Q25_2)
-
-threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
-  pivot_wider(id_cols = c(HouseID, ac.type, Post_response), names_from = Survey, values_from = total_score) |> 
-  mutate(score_diff = Post_Intervention - Pre_Intervention) |> 
- filter(!is.na(score_diff))
-
-
-
-okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
-               "#0072B2", "#D55E00", "#CC79A7", "#000000",
-               "#332288", "#117733", "#44AA99", "#88CCEE",
-               "#DDCC77", "#882255")
+names(threat_behavior_score)
 
 set.seed(123) # for reproducibility of jitter
-ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score,color=Response)) +
-  geom_boxplot(outlier.shape = NA)+
+ggplot(threat_behavior_score_Q25, aes(x = Q25, y = threat_score, color=Q25)) +
+  geom_boxplot(data = threat_behavior_score_Q25 |>
+                 filter(!(Survey == "Pre-Intervention" & Q25 == "No Change")),
+               outlier.shape = NA)+
    geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
-  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention"= "Pre-Intervention (n=14)", "Post_Intervention" = "Post-Intervention (n=15)"))) +
+  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre-Intervention"= "Pre-Intervention (n=14)", "Post-Intervention" = "Post-Intervention (n=15)"))) +
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
-    map_signif_level = FALSE,
+    map_signif_level = function(p) sprintf("p = %.3f", p),
     test = 't.test',
     color = 'black',
     vjust = 0,
@@ -461,7 +547,7 @@ ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score,color=Respon
     shape = "AC Type"
   ) +
   #scale_color_grey()+
- scale_color_manual(values = okabe_ito, name = "House Type") +
+ scale_color_manual(values = okabe_ito[5:6], name = "House Type") +
     guides(color = "none") + 
   theme_bw()
 
@@ -473,63 +559,95 @@ Figure 1 for Q29
 
 ```{r}
 
-threat_behavior_score_Q29 <- model_df_long %>%
-  left_join(behavior_df, by = c("HouseID", "Survey")) |>
-  mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), ordered = TRUE)) |>
-  filter(QuestionID == "Q29") |>
-  mutate(Response = case_when(
-      Response == 1 ~ "Change",
-      Response == 2 ~ "No Change"
-    )) |>
-  filter(!is.na(Response))
+threat_behavior_score_Q29 <- threat_behavior_score |>
+  filter(!is.na(Q29))
 
 set.seed(123)
-ggplot(threat_behavior_score_Q29, aes(x = Response, y = total_score, color = Response)) +
+ggplot(threat_behavior_score_Q29, aes(x = Q29, y = threat_score, color = Q29)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
-    map_signif_level = FALSE,
+    map_signif_level = function(p) sprintf("p = %.3f", p),
     test = 't.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
   ) +
-  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention" = "Pre-Intervention", "Post_Intervention" = "Post-Intervention"))) +
+  facet_wrap(~Survey) +
   labs(
-    x = "Made changes to home to improve air quality (Q29)",
-    y = "Threat score",
-    color = "House Type",
-    shape = "AC Type"
+    x = "Changes made to home to improve air quality (Q29)",
+    y = "Total threat score",
+      shape = "House Type"
   ) +
-  scale_color_manual(values = okabe_ito, name = "House Type") +
-    guides(color = "none") + 
+  scale_color_manual(values = okabe_ito[7:8], name = "House Type") +
+  guides(color = "none") + 
   theme_bw()
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot_Q29.jpeg")
 
 ```
 
+
+
 Make a plot showing the difference in Threat score by behavior change group, with lines connecting the same HouseID across surveys. (Figure 2 for Q25)
 
 ```{r}
 
+## Create a dataframe that has the post-intervention behavior responses for Q25, and merge that with the threat scores to get a dataframe that has the pre- and post- threat scores and the post-intervention responses for Q25.
+
+behavior_Q25_post <- threat_behavior_score |>
+  filter(Survey == "Post-Intervention") |>
+  select(HouseID, Q25) |> 
+  mutate(Post_response_Q25 = case_when(HouseID == "H29" ~ "Change", 
+          HouseID == "H31" ~ "Change",
+          TRUE ~ Q25)) |> ## impute the response for H29 and H31 since they only have a pre-intervention survey and they said they made changes in the pre-intervention survey
+  select(-Q25) |> 
+  filter(!is.na(Post_response_Q25))
+
+## join this with the threat scores, and filter to only include rows that have a post-intervention response for Q25 (i.e., remove H31 a since they only have pre-intervention surveys and we don't know their post-intervention behavior change response)
+
+threat_behavior_score_Q25_2 <- threat_behavior_score |> 
+  left_join(behavior_Q25_post, by = "HouseID") 
+
+names(threat_behavior_score_Q25_2)
+
 ## geom_point and geom_line
-ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = total_score)) +
-    geom_point(width=0.3,height=0, aes(shape = ac.type, color = Post_response))+
+ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
+    geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q25))+
    geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
-  facet_wrap(~Post_response) +
+  facet_wrap(~Post_response_Q25, labeller = labeller(Post_response_Q25 = c("Change" = "Change Behavior in Post-Intervention", "No Change" = "No Change in Behavior in Post-Intervention"))) +
   labs(
     x = "Survey",
     y = "Threat score",
     color = "Home Type",
     shape = "AC Type"
   ) +
-  #scale_color_grey()+
- scale_color_manual(values = okabe_ito, name = "Behavior") +
+    geom_label_repel(
+    data = threat_behavior_score_Q25_2 |>
+      filter(Post_response_Q25 == "No Change", Survey == "Post-Intervention"),
+    aes(label = HouseID),
+    size = 3,
+    min.segment.length = .6,
+    segment.color = "grey70",
+    color = 'grey70',
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha=0.7
+  ) +
+  ## don't do t-test here because the groups are not independent (i.e., the same HouseIDs are in both groups since we are categorizing them based on their post-intervention response, and they have both pre- and post-intervention threat scores)
+  # geom_signif(
+  #   comparisons = list(c('Pre-Intervention', 'Post-Intervention')),
+  #   map_signif_level = function(p) sprintf("p = %.3f", p),
+  #   test = 't.test',
+  #   color = 'black',
+  #   vjust = 0,
+  #   margin_top = 0.1
+  # ) +
+ scale_color_manual(values = okabe_ito[5:6], name = "Behavior") +
   theme_bw()
 
-  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot_lines.jpeg")
+  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_diff_by_behavior_lines.jpeg")
 
 
 ```
@@ -539,9 +657,16 @@ Figure 3 for Question 25
 ```{r}
 library(ggrepel)
 
+threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
+  select(HouseID, ac.type, Post_response_Q25, Survey, threat_score) |>
+  pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q25), names_from = Survey, values_from = threat_score) |> 
+  mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
+ filter(!is.na(score_diff))
+
+
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
 
-ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response, y = score_diff, color = Post_response)) +
+ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_diff, color = Post_response_Q25)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
   geom_label_repel(
@@ -563,8 +688,8 @@ ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response, y = score_diff, co
   ) +
   geom_signif(
     comparisons = list(c('Change', 'No Change')),
-    map_signif_level = FALSE,
-    test = 'wilcox.test',
+    map_signif_level = function(p) sprintf("p = %.2f", p),
+    test = 't.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1

@@ -1,43 +1,10 @@
 ## analyze survey behavior data
 
-
-# For Behavior questions, Q25, Q29, what percentages of people put answer 1?
-
-names(survey_aq)
-
-## Select the row from survey_aq where the response to Q25 is "1,2"
-Q25_problematic <- survey_aq |>
-                    filter(QuestionID == "Q25", Response != "1" & Response != "2")
-
-## Select the row from survey_aq where the response to Q25 is "1,2"
-Q25_problematic_H31 <- survey_aq |>
-                    filter(QuestionID == "Q25" & HouseID == "H31")
-
-## H31 responded both 1,2 for the post-interview, and then responded to why they don't change their behavior in Q26.
-## Change the response for H31, Post-survey, Q25 to be 2 (no change in behavior)
-
-unique(survey_aq$Survey)
-
-survey_aq_updated <- survey_aq |>
-    mutate(Response = ifelse(HouseID == "H31" & QuestionID == "Q25", "2", Response)) |>
-    mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), ordered = TRUE))
+survey_aq <- read_csv("./Processed Data/survey_aq_data.csv") |> 
+            mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), ordered = TRUE)) 
 
 
-
-## which house is missing responses to Q25 and Q29?
-survey_aq_updated |>
-    filter(QuestionID %in% c("Q25","Q29") & is.na(Response)) |>
-    select(HouseID, Survey, QuestionID, Response)
-
-  #H05 pre-survey is missing behavior questions
-
-# H19 pre-survey is missing behavior questions
-# H29 post-survey is missing behavior questions
-
-write_csv(survey_aq_updated, "./Processed Data/survey_aq_updated.csv")
-
-
-Q25_Q29_summarize <- survey_aq_updated |>
+Q25_Q29_summarize <- survey_aq |>
                     filter(QuestionID %in% c("Q25","Q29")) |>
                     group_by(QuestionID, Survey, ac.type) |>
                     summarize(responses = sum(!is.na(Response)), n = n()) |>
@@ -48,7 +15,7 @@ Q25_Q29_summarize <- survey_aq_updated |>
 # what percentage of people responded with "1" (changed behavior)?
 
 
-Q25_Q29_summarize_changed <- survey_aq_updated |>
+Q25_Q29_summarize_changed <- survey_aq |>
                     filter(QuestionID %in% c("Q25","Q29")) |>
                     filter(Response == "1") |>
                     group_by(QuestionID, Survey, ac.type) |>
@@ -64,7 +31,7 @@ write_csv(Q25_Q29_summarize_changed, "./Processed Data/Q25_Q29_behavior_summary.
 
 ## Look at the differences in the responses. Did anyone actually change their response, or is it due to different number of responders?
 
-survey_behavior_diff <- survey_aq_updated|>
+survey_behavior_diff <- survey_aq|>
   filter(QuestionID %in% c("Q25","Q29"))|> # look at Question 25 and 29
   select(HouseID, Construct, Construct_general, Pollutant, Survey, QuestionID, Response) |>
   mutate(Response = as.integer(Response)) |>
@@ -73,7 +40,7 @@ survey_behavior_diff <- survey_aq_updated|>
 
 names(survey_behavior_diff)
 
-## H14 is the only home that changed their response to Q25
+## H14 and H31 are the only homes that changed their response to Q25
 ## They changed from changing behavior when air quality is poor, to not changing their behavior.
 
 ## summarize
@@ -83,17 +50,17 @@ names(survey_behavior_diff)
 # ── Subsetting keys ───────────────────────────────────────────
 
 # HouseID + Survey combos where Q25 == "2" (no behavior change)
-Q25_no_change <- survey_aq_updated |>
+Q25_no_change <- survey_aq |>
   filter(QuestionID == "Q25" & Response == "2") |>
   select(HouseID, Survey)
 
 # Q25 == "1" (Yes – changed behavior)
-Q25_yes <- survey_aq_updated |>
+Q25_yes <- survey_aq |>
   filter(QuestionID == "Q25" & Response == "1") |>
   select(HouseID, Survey)
 
 # Q29 == "1" (Yes – made home changes)
-Q29_yes <- survey_aq_updated |>
+Q29_yes <- survey_aq |>
   filter(QuestionID == "Q29" & Response == "1") |>
   select(HouseID, Survey)
 
@@ -120,7 +87,7 @@ build_answer_lookup <- function(qid) {
 build_expanded <- function(qid, subset_keys) {
   lookup <- build_answer_lookup(qid)
 
-  rows <- survey_aq_updated |>
+  rows <- survey_aq |>
     filter(QuestionID == qid)
 
   if (!is.null(subset_keys)) {
@@ -148,7 +115,7 @@ build_expanded <- function(qid, subset_keys) {
   # If "Other" is not in the answer key at all but Q##_Other responses exist,
   # create a synthetic entry placed after the last defined answer.
   if (nrow(other_answer) == 0) {
-    has_other_responses <- survey_aq_updated |>
+    has_other_responses <- survey_aq |>
       filter(QuestionID == paste0(qid, "_Other"), !is.na(Response)) |>
       nrow() > 0
 
@@ -159,7 +126,7 @@ build_expanded <- function(qid, subset_keys) {
   }
 
   if (nrow(other_answer) > 0) {
-    other_text_rows <- survey_aq_updated |>
+    other_text_rows <- survey_aq |>
       filter(QuestionID == paste0(qid, "_Other"), !is.na(Response))
 
     if (!is.null(subset_keys)) {
@@ -196,7 +163,7 @@ build_crosstab <- function(expanded_df, qid, subset_keys) {
   if (!is.null(subset_keys)) {
     relevant_homes <- subset_keys |> distinct(HouseID) |> arrange(HouseID) |> pull(HouseID)
   } else {
-    relevant_homes <- survey_aq_updated |>
+    relevant_homes <- survey_aq |>
       filter(QuestionID == qid, !is.na(Response)) |>
       distinct(HouseID) |> arrange(HouseID) |> pull(HouseID)
   }
@@ -208,7 +175,7 @@ build_crosstab <- function(expanded_df, qid, subset_keys) {
     mutate(selected = "X")
 
   # free-text "Other" responses from the companion Q##_Other question
-  other_text <- survey_aq_updated |>
+  other_text <- survey_aq |>
     filter(QuestionID == paste0(qid, "_Other"), !is.na(Response)) |>
     select(HouseID, Survey, other_response = Response)
 
@@ -237,7 +204,7 @@ build_crosstab <- function(expanded_df, qid, subset_keys) {
     mutate(Answer_text = paste0(ans_num_map[Answer_text], ". ", Answer_text)) |>
     (\(tbl) {
       # Label each home as "H## (AC)" or "H## (EC)"
-      ac_lookup <- survey_aq_updated |> distinct(HouseID, ac.type)
+      ac_lookup <- survey_aq |> distinct(HouseID, ac.type)
       home_labels <- tibble(HouseID = relevant_homes) |>
         left_join(ac_lookup, by = "HouseID") |>
         mutate(label = paste0(HouseID, " (", ac.type, ")")) |>
@@ -447,7 +414,7 @@ View(Q26_Q30_expanded)
 ## Analyze Q26 (why no behavior change) for households where Q25 Response == 2
 
 # Q26 rows for Q25-no-change combos, non-NA responses only
-Q26_filtered <- survey_aq_updated |>
+Q26_filtered <- survey_aq |>
   filter(QuestionID == "Q26") |>
   inner_join(Q25_no_change, by = c("HouseID", "Survey")) |>
   filter(!is.na(Response))
@@ -552,7 +519,7 @@ ggsave(
 
 ## ── Q27: how do you know when the air is polluted? ───────────
 
-Q27_filtered <- survey_aq_updated |>
+Q27_filtered <- survey_aq |>
   filter(QuestionID == "Q27") |>
   inner_join(Q25_yes, by = c("HouseID", "Survey")) |>
   filter(!is.na(Response))
@@ -569,7 +536,7 @@ plot_behavior_q(
 
 ## ── Q28: how do you change your behavior? ────────────────────
 
-Q28_filtered <- survey_aq_updated |>
+Q28_filtered <- survey_aq |>
   filter(QuestionID == "Q28") |>
   inner_join(Q25_yes, by = c("HouseID", "Survey")) |>
   filter(!is.na(Response))
@@ -586,7 +553,7 @@ plot_behavior_q(
 
 ## ── Q30: what changes have you made to your home? ────────────
 
-Q30_filtered <- survey_aq_updated |>
+Q30_filtered <- survey_aq |>
   filter(QuestionID == "Q30") |>
   inner_join(Q29_yes, by = c("HouseID", "Survey")) |>
   filter(!is.na(Response))
