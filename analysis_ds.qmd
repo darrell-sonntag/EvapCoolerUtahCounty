@@ -154,26 +154,12 @@ okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
                "#332288", "#117733", "#44AA99", "#88CCEE",
                "#DDCC77", "#882255")
 
-H14_label_df <- threat_behavior_score_Q25 |> 
-  filter(HouseID == "H14")
-
 set.seed(123) # for reproducibility of jitter
-ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score, color=Response)) +
+ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score,color=Response)) +
   geom_boxplot(outlier.shape = NA)+
-  geom_jitter(width=0.3, height=0, aes(shape = ac.type)) +
-   geom_label_repel(
-    data = H14_label_df,
-    aes(label = HouseID),
-    size = 3,
-    min.segment.length = 0,
-    segment.color = "grey70",
-    color = "grey70",
-    box.padding = 0.4,
-    point.padding = 0,
-    show.legend = FALSE,
-    alpha = 0.7) +
-  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention"= "Pre-Intervention (n=14)", "Post_Intervention" = "Post-Intervention (n=15)"))) +
-  geom_signif(
+   geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
+  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention" = "Pre-Intervention (n=14)", "Post_Intervention" = "Post-Intervention (n=15)"))) +
+    geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = FALSE,
     test = 't.test',
@@ -183,7 +169,7 @@ ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score, color=Respo
   ) +
   labs(
     x = "Change in Behavior due to Outdoor Air Quality",
-    y = "Threat score",
+    y = "Perceived Threat score",
     color = "Home Type",
     shape = "AC Type"
   ) +
@@ -194,6 +180,92 @@ ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score, color=Respo
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot.jpeg")
 
+```
+
+
+```{r}
+
+#H14 labelled plot
+threat_behavior_score_Q25 <- threat_behavior_score_Q25 |>
+  mutate(
+    x_num = as.numeric(factor(Response)),
+    jitter_x = jitter(x_num, amount = 0.3),
+    jitter_y = total_score
+  )
+
+H14_label_df <- threat_behavior_score_Q25 |> 
+  filter(HouseID == "H14")
+
+signif_df <- data.frame(
+      xmin = c(1, 1),
+      xmax = c(2, 2),
+      y_position = c(53, 53),
+      annotations = c('0.96', '0.15'),
+      Survey = c('Pre_Intervention', 'Post_Intervention')
+    )
+
+threat_behavior_score_Q25$Survey <- factor(
+  threat_behavior_score_Q25$Survey,
+  levels = c("Pre_Intervention", "Post_Intervention")
+)
+
+signif_df$Survey <- factor(
+  signif_df$Survey,
+  levels = c("Pre_Intervention", "Post_Intervention")
+)
+
+ggplot(threat_behavior_score_Q25,
+       aes(x = x_num, y = jitter_y, color = Response)) +
+
+  # Boxplot must use the original categorical x
+  geom_boxplot(outlier.shape = NA) +
+
+  geom_point(aes(x = jitter_x, shape = ac.type)) +
+
+  geom_label_repel(
+    data = H14_label_df,
+    aes(label = HouseID, x = jitter_x),
+    size = 3,
+    min.segment.length = 0,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  ) +
+
+  facet_wrap(~Survey, labeller = labeller(
+    Survey = c(
+      "Pre_Intervention" = "Pre-Intervention (n=14)",
+      "Post_Intervention" = "Post-Intervention (n=15)"
+    )
+  )) +
+
+  geom_signif(
+    data = signif_df, 
+    aes(xmin = xmin, xmax = xmax, y_position = y_position, annotations = annotations),
+    manual = TRUE,
+    tip_length = 0.02,
+    color = 'black'
+  ) +
+
+  labs(
+    x = "Change in Behavior due to Outdoor Air Quality",
+    y = "Perceived Threat score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+
+  scale_color_manual(values = okabe_ito, name = "House Type") +
+  guides(color = "none") +
+  scale_x_continuous(
+    breaks = sort(unique(threat_behavior_score_Q25$x_num)),
+    labels = c('Change', 'No Change')
+  ) +
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/H14_threat_behavior_plot.jpeg")
 ```
 
 Figure 1 for Q29
@@ -225,7 +297,7 @@ ggplot(threat_behavior_score_Q29, aes(x = Response, y = total_score, color = Res
   facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention" = "Pre-Intervention", "Post_Intervention" = "Post-Intervention"))) +
   labs(
     x = "Made changes to home to improve air quality (Q29)",
-    y = "Threat score",
+    y = "Perceived Threat score",
     color = "House Type",
     shape = "AC Type"
   ) +
@@ -234,6 +306,10 @@ ggplot(threat_behavior_score_Q29, aes(x = Response, y = total_score, color = Res
   theme_bw()
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot_Q29.jpeg")
+scale_x_continuous(
+  breaks = sort(unique(threat_behavior_score_Q25$x_num)),
+  labels = c("Low AQ", "Medium AQ", "High AQ")
+)
 
 ```
 
@@ -268,14 +344,14 @@ Figure 3 for Question 25
 ```{r}
 library(ggrepel)
 
-jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
+jitter_pos2 <- position_jitter(width = 0.3, height = 0, seed = 42)
 
 ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response, y = score_diff, color = Post_response)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
+  geom_jitter(position = jitter_pos2, aes(shape = ac.type)) +
   geom_label_repel(
     aes(label = HouseID),
-    position = jitter_pos,
+    position = jitter_pos2,
     size = 3,
     min.segment.length = .6,  
     segment.color = "grey70", 
@@ -490,14 +566,37 @@ write_csv(lm_threat_knowledge_behavior, "./Processed Data/lm_threat_knowledge_be
 ```{r}
 
 ## Compare linear model between knowledge scores and threat scores.
+knowledge_pvals <- threat_behavior_knowledge_Q25 %>%
+  group_by(Survey) %>%
+  do(tidy(lm(total_score ~ know_score, data = .))) %>%
+  filter(term == "know_score") %>%
+  mutate(label = paste0("p = ", signif(p.value, 2)))
+
+knowledge_r2 <- threat_behavior_knowledge_Q25 %>%
+  group_by(Survey) %>%
+  do(glance(lm(total_score ~ know_score, data = .))) %>%
+  mutate(label = paste0("R² = ", signif(r.squared, 3)))
 
 ggplot(threat_behavior_knowledge_Q25, aes(x = know_score, y = total_score)) +
    geom_point(aes(shape = ac.type, color = ac.type))+
    geom_smooth(method = "lm", se = TRUE, color = "black") +
   facet_wrap(~Survey) +
+   geom_text(
+    data = knowledge_pvals,
+    aes(x = -Inf, y = Inf, label = label),
+    hjust = -0.05, vjust = 1.4,
+    size = 3.5
+  ) +
+    geom_text(
+    data = knowledge_r2,
+    aes(x = -Inf, y = Inf, label = label),
+    hjust = -0.05,
+    vjust= 2.8, 
+    size = 3.5
+    )+
   labs(
     x = "Knowledge Score",
-    y = "Threat Score",
+    y = "Perceived Threat Score",
     color = "Home Type",
     shape = "AC Type"
   ) +
@@ -571,10 +670,19 @@ O3_facet_pvals <- threat_behavior_knowledge_Q25 %>%
   group_by(ac.type, Survey) %>%
   do(tidy(lm(O3_score ~ mean_IO_O3_Summer, data = .))) %>%
   filter(term == "mean_IO_O3_Summer") %>%
-  mutate(label = as.character(signif(p.value, 3)),
+  mutate(label = paste0("p = ", signif(p.value, 2)),
     xmin = 0,
     xmax = 0.01,
     y_position = max(threat_behavior_knowledge_Q25$O3_score, na.rm = TRUE))
+
+O3_facet_r2 <- threat_behavior_knowledge_Q25 %>%
+  group_by(ac.type, Survey) %>%
+  do(glance(lm(O3_score ~ mean_IO_O3_Summer, data = .))) %>%
+  mutate(
+    label = paste0("R² = ", signif(r.squared, 3)),
+    x = min(threat_behavior_knowledge_Q25$mean_IO_O3_Summer, na.rm = TRUE),
+    y = max(threat_behavior_knowledge_Q25$O3_score, na.rm = TRUE) * 0.95
+  )
 
 ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_O3_Summer, y = O3_score)) +
    geom_point(aes(shape = ac.type, color = ac.type))+
@@ -591,14 +699,22 @@ ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_O3_Summer, y = O3_score)) 
     y_position = O3_facet_pvals$y_position,
     tip_length = 0,
     size = 0,
-    textsize = 4,
-    vjust = -0.7,
+    textsize = 3,
+    vjust = -1,
     hjust = 0.1
+  ) +
+
+  geom_text(
+    data = O3_facet_r2,
+    aes(x = x, y = y, label = label),
+    hjust = 0.5,
+    vjust = -1,
+    size = 3
   ) +
 
   labs(
     x = "O3 Air Quality Score",
-    y = "Threat Score",
+    y = "O3 Threat Score",
     color = "Home Type",
     shape = "AC Type"
   ) +
@@ -613,10 +729,19 @@ PM_facet_pvals <- threat_behavior_knowledge_Q25 %>%
   group_by(ac.type, Survey) %>%
   do(tidy(lm(PM_score ~ mean_IO_PM_Summer, data = .))) %>%
   filter(term == "mean_IO_PM_Summer") %>%
-  mutate(label = as.character(signif(p.value, 3)),
+  mutate(label = paste0('p = ', signif(p.value, 2)),
     xmin = 0,
     xmax = 0.01,
     y_position = max(threat_behavior_knowledge_Q25$PM_score, na.rm = TRUE))
+
+PM_facet_r2 <- threat_behavior_knowledge_Q25 %>%
+  group_by(ac.type, Survey) %>%
+  do(glance(lm(PM_score ~ mean_IO_PM_Summer, data = .))) %>%
+  mutate(
+    label = paste0("R² = ", signif(r.squared, 3)),
+    x = min(threat_behavior_knowledge_Q25$mean_IO_PM_Summer, na.rm = TRUE),
+    y = max(threat_behavior_knowledge_Q25$PM_score, na.rm = TRUE) * 0.95
+  )
 
 ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_PM_Summer, y = PM_score)) +
    geom_point(aes(shape = ac.type, color = ac.type))+
@@ -631,14 +756,23 @@ ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_PM_Summer, y = PM_score)) 
     y_position = PM_facet_pvals$y_position,
     tip_length = 0,
     size = 0,
-    textsize = 4,
-    vjust = 0,
-    hjust = 0
+    textsize = 3.5,
+    vjust = -2,
+    hjust = 0.05
   ) +
+
+  geom_text(
+    data = PM_facet_r2,
+    aes(x = x, y = y, label = label),
+    hjust = 0.8,
+    vjust = -1,
+    size = 3.5
+  ) +
+
 
   labs(
     x = "PM Air Quality Score",
-    y = "Threat Score",
+    y = "PM Threat Score",
     color = "Home Type",
     shape = "AC Type"
   ) +
