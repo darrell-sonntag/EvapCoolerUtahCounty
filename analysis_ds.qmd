@@ -27,6 +27,9 @@ House 6 Pre-Intervention has NAs for Q12 and Q13. House 33 Pre-Intervention has 
 ```{r}
 
 library(tidyverse)
+library(ggsignif)
+library(ggrepel)
+library(kableExtra)
 
 # set theming
 
@@ -79,14 +82,18 @@ fa_df_29 <- df_raw %>%
   filter(HouseID == "H29")
 
 ## let's use House ID 29, even though we didn't use it in the factor analysis. 
+perceived_threat_O3_questions <- c(sevo3_qs[[1]], suso3_qs[[1]])
+perceived_threat_PM2.5_questions <- c(sevpm_qs[[1]], suspm_qs[[1]])
 
 fa_df_imputed_29 <- fa_df_imputed |> 
   bind_rows(fa_df_29)
 
 model_df_long <- fa_df_imputed_29 %>% 
   mutate(total_score =  rowSums(across(Q09:Q22))) %>%
-  select(HouseID, Survey, total_score) 
-
+  mutate(O3_score =  rowSums(across(perceived_threat_O3_questions))) %>%
+  mutate(PM_score = rowSums(across(all_of(perceived_threat_PM2.5_questions)))) |> 
+  select(HouseID, Survey, O3_score, PM_score, total_score)
+  
 
 ## merge some of the questions back into the main dataset to have the updated behavior questions in the main dataset for analysis
 
@@ -137,7 +144,7 @@ names(threat_behavior_score_Q25_2)
 
 threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response), names_from = Survey, values_from = total_score) |> 
-  mutate(score_diff = Post_Intervention - Pre_Intervention) 
+  mutate(score_diff = Post_Intervention - Pre_Intervention) |>
  filter(!is.na(score_diff))
 
 
@@ -147,12 +154,26 @@ okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
                "#332288", "#117733", "#44AA99", "#88CCEE",
                "#DDCC77", "#882255")
 
+H14_label_df <- threat_behavior_score_Q25 |> 
+  filter(HouseID == "H14")
+
 set.seed(123) # for reproducibility of jitter
-ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score,color=Response)) +
+ggplot(threat_behavior_score_Q25, aes(x = Response, y = total_score, color=Response)) +
   geom_boxplot(outlier.shape = NA)+
-   geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
+  geom_jitter(width=0.3, height=0, aes(shape = ac.type)) +
+   geom_label_repel(
+    data = H14_label_df,
+    aes(label = HouseID),
+    size = 3,
+    min.segment.length = 0,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7) +
   facet_wrap(~Survey, labeller = labeller(Survey = c("Pre_Intervention"= "Pre-Intervention (n=14)", "Post_Intervention" = "Post-Intervention (n=15)"))) +
-    geom_signif(
+  geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = FALSE,
     test = 't.test',
@@ -311,9 +332,12 @@ threat_behavior_knowledge_Q25 <- threat_behavior_score_Q25 |>
 ggplot(threat_behavior_knowledge_Q25, aes(x = Response, y = know_score, color = Response)) +
   geom_boxplot(outlier.shape = NA)+
    geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
-  #geom_signif(comparisons=list(c('Change','No Change')),
-   #                            map_signif_level=FALSE,test='t.test',
-   #                            color='black',vjust=0,margin_top=0.1)+
+  geom_signif(comparisons = list(c('Change','No Change')),
+   map_signif_level = FALSE,
+   test = 't.test',
+   color = 'black',
+   vjust = 0,
+   margin_top = 0.1)+
   facet_wrap(~Survey) +
   labs(
     x = "Change in Behavior due to Outdoor Air Quality",
@@ -342,9 +366,16 @@ threat_behavior_knowledge_Q29 <- threat_behavior_score_Q29 |>
 ggplot(threat_behavior_knowledge_Q29, aes(x = Response, y = know_score, color = Response)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
+    geom_signif(comparisons = list(c('Change', 'No Change')),
+    map_signif_level = FALSE, 
+    test = 't.test',
+    color = 'black',
+    vjust = 0,
+    margin_top = 0.1
+    ) +
   facet_wrap(~Survey) +
   labs(
-    x = "Change in Behavior due to Outdoor Air Quality (Q29)",
+    x = "Change in Home to Improve Indoor Air Quality (Q29)",
     y = "Knowledge Score",
     color = "Home Type",
     shape = "AC Type"
@@ -535,21 +566,87 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 ## ozone data
 
-ggplot(threat_behavior_knowledge_Q25, aes(x = total_score, y = mean_IO_O3_Summer)) +
+# P-values are calculated here for each of the slopes in each of the facets that are mapped below
+O3_facet_pvals <- threat_behavior_knowledge_Q25 %>%
+  group_by(ac.type, Survey) %>%
+  do(tidy(lm(O3_score ~ mean_IO_O3_Summer, data = .))) %>%
+  filter(term == "mean_IO_O3_Summer") %>%
+  mutate(label = as.character(signif(p.value, 3)),
+    xmin = 0,
+    xmax = 0.01,
+    y_position = max(threat_behavior_knowledge_Q25$O3_score, na.rm = TRUE))
+
+ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_O3_Summer, y = O3_score)) +
    geom_point(aes(shape = ac.type, color = ac.type))+
    geom_smooth(method = "lm", se = TRUE, color = "black") +
   facet_grid(ac.type~Survey,scales="free_y") +
+  
+# P-values mapped in below
+  geom_signif(
+    data = O3_facet_pvals,
+    manual = TRUE,
+    aes(annotations = label),
+    xmin = O3_facet_pvals$xmin,
+    xmax = O3_facet_pvals$xmax,
+    y_position = O3_facet_pvals$y_position,
+    tip_length = 0,
+    size = 0,
+    textsize = 4,
+    vjust = -0.7,
+    hjust = 0.1
+  ) +
+
   labs(
-    x = "Threat Score",
-    y = "O3 Air Quality Score",
+    x = "O3 Air Quality Score",
+    y = "Threat Score",
     color = "Home Type",
     shape = "AC Type"
   ) +
-  #scale_color_grey()+
+  
  scale_color_manual(values = okabe_ito, name = "House Type") +
   theme_bw()
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/O3_threat_plot.jpeg")
+
+# New PM plot, similar to the O3 plot above
+PM_facet_pvals <- threat_behavior_knowledge_Q25 %>%
+  group_by(ac.type, Survey) %>%
+  do(tidy(lm(PM_score ~ mean_IO_PM_Summer, data = .))) %>%
+  filter(term == "mean_IO_PM_Summer") %>%
+  mutate(label = as.character(signif(p.value, 3)),
+    xmin = 0,
+    xmax = 0.01,
+    y_position = max(threat_behavior_knowledge_Q25$PM_score, na.rm = TRUE))
+
+ggplot(threat_behavior_knowledge_Q25, aes(x = mean_IO_PM_Summer, y = PM_score)) +
+   geom_point(aes(shape = ac.type, color = ac.type))+
+   geom_smooth(method = "lm", se = TRUE, color = "black") +
+  facet_grid(ac.type~Survey,scales="free_y") +
+  geom_signif(
+    data = PM_facet_pvals,
+    manual = TRUE,
+    aes(annotations = label),
+    xmin = PM_facet_pvals$xmin,
+    xmax = PM_facet_pvals$xmax,
+    y_position = PM_facet_pvals$y_position,
+    tip_length = 0,
+    size = 0,
+    textsize = 4,
+    vjust = 0,
+    hjust = 0
+  ) +
+
+  labs(
+    x = "PM Air Quality Score",
+    y = "Threat Score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  
+ scale_color_manual(values = okabe_ito, name = "House Type") +
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/PM_threat_plot.jpeg")
 
 
 ```
