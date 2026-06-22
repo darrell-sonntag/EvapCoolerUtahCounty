@@ -28,6 +28,7 @@ House 6 Pre-Intervention has NAs for Q12 and Q13. House 33 Pre-Intervention has 
 
 library(tidyverse)
 library(ggsignif)
+library(patchwork)
 # set theming
 
 theme_set(
@@ -167,7 +168,12 @@ Make Figure S-1 (points and lines showing changes in threat before and after fac
 
 df_pre_post_threat <- df_pre_post_scores |> 
   filter(type %in% c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat"))
-   
+
+names(df_pre_post_threat)
+pre_post_threat_means <- df_pre_post_threat |> 
+                            group_by(type,Survey) |> 
+                            summarize(mean = mean(score,na.rm=T))
+
    
 okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
                "#0072B2", "#D55E00", "#CC79A7", "#000000",
@@ -179,19 +185,104 @@ okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
 ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
     geom_point(width=0.3,height=0, aes(shape = ac.type, color = ac.type))+
    geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+   geom_point(data=pre_post_threat_means, shape = 4, color='black', size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
   facet_wrap(~type) +
   labs(
     x = "Survey",
     y = "Threat score",
     color = "Home Type",
-    shape = "AC Type"
+    shape = "AC Type",
+    caption = "✕ = mean"
   ) +
   theme_bw() +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        plot.caption = element_text(hjust = 0.5,size=11)) +
+ scale_color_manual(values = okabe_ito, name = "House Type") +
+ scale_shape_manual(values = c(16, 17), name = "House Type")
+
+  ggsave(width = 7, height = 6, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
+
+
+
+```
+
+
+Compare the averages of the severity vs the susceptibility for the pollutants...(not sure this will be included in the final SI)
+
+```{r}
+
+names(df_pre_post_scores)
+
+df_pre_post_construct_by_pollutant <- df_pre_post_threat|> 
+                            filter(type %in% c("O3 Susceptibility", "O3 Severity", "PM2.5 Susceptibility", "PM2.5 Severity")) |> 
+                            separate_wider_delim(type, delim = " ", names= c("Pollutant","Construct")) |> 
+                            mutate(Construct = factor(Construct, levels = c('Susceptibility', 'Severity'), ordered = TRUE))
+
+
+
+pre_post_construct_means <- df_pre_post_construct_by_pollutant |> 
+                            group_by(Pollutant,Construct,Survey) |> 
+                            summarize(mean = mean(score,na.rm=T))
+
+names(pre_post_construct_means)
+
+set.seed(123) # for reproducibility of jitter
+ggplot(df_pre_post_construct_by_pollutant, aes(x = Construct, y = score, color=ac.typet)) +
+   geom_point(width=0.3,height=0, aes(shape = ac.type, color = ac.type))+
+   geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+   geom_point(data=pre_post_construct_means, shape = 4, color='black',size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
+   facet_grid(Pollutant ~ Survey)+
+  labs(
+    x = "Survey",
+    y = "Threat score",
+    color = "Home Type",
+    shape = "AC Type",
+    caption = "✕ = mean"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        plot.caption = element_text(hjust = 0.5,size=11)) +
+scale_color_manual(values = okabe_ito[1:2], name = "Pollutant") +
+    guides(color = "none") 
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/box_plot_risk_construct_comparison.jpeg")
+```
+
+Knowledge before and after graphs
+
+
+```{r}
+
+df_pre_post_knowledge <- df_pre_post_scores |> 
+  filter(type %in% c("Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge")) |> 
+  mutate(type = factor(type, levels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"), labels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Pollutant Knowledge"),ordered = TRUE)) 
+
+pre_post_knowledge_means <- df_pre_post_knowledge |> 
+                            group_by(type,Survey) |> 
+                            summarize(mean = mean(score,na.rm=T))
+
+set.seed(23)   
+## geom_point and geom_line
+ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
+  geom_jitter(width=0.01,height=0, aes(shape = ac.type, color = ac.type), alpha = 0.5)+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+     geom_point(data=pre_post_knowledge_means, shape = 4, color='black',size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
+  facet_wrap(type~.,nrow = 1, scales = "free_y") +
+  labs(
+    x = "Survey",
+    y = "Knowledge score",
+    color = "Home Type",
+    shape = "AC Type",
+    caption = "✕ = mean"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        plot.caption = element_text(hjust = 0.5,size=11)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type") 
 
-  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
+ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_overall_change_lines.jpeg")
+
 
 
 
@@ -203,6 +294,7 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
 # --- Shared Deming regression helpers ---
 
 # Bootstrap 95% CI for mean prediction (like nlsBootPredict)
+# Returns a list: $ci (data frame of intervals) and $slopes (vector of bootstrap slopes)
 boot_ci <- function(x, y, x_grid, niter = 500) {
   set.seed(42)
   boot_mat <- replicate(niter, {
@@ -214,11 +306,25 @@ boot_ci <- function(x, y, x_grid, niter = 500) {
     if (is.null(fit)) rep(NA_real_, length(x_grid))
     else fit$coefficients[1] + fit$coefficients[2] * x_grid
   })
-  data.frame(
-    `2.5%`  = apply(boot_mat, 1, quantile, 0.025, na.rm = TRUE),
-    `97.5%` = apply(boot_mat, 1, quantile, 0.975, na.rm = TRUE),
-    check.names = FALSE
+  # extract slopes from boot_mat (row per x_grid point, col per iter)
+  # slopes aren't stored per-row, so recompute from intercept differences
+  slopes <- (boot_mat[length(x_grid), ] - boot_mat[1, ]) /
+            (x_grid[length(x_grid)] - x_grid[1])
+  list(
+    ci = data.frame(
+      `2.5%`  = apply(boot_mat, 1, quantile, 0.025, na.rm = TRUE),
+      `97.5%` = apply(boot_mat, 1, quantile, 0.975, na.rm = TRUE),
+      check.names = FALSE
+    ),
+    slopes = slopes
   )
+}
+
+# Two-sided bootstrap p-value for H0: slope = null_slope
+boot_p_value <- function(observed_slope, boot_slopes, null_slope) {
+  boot_slopes <- boot_slopes[!is.na(boot_slopes)]
+  shifted     <- boot_slopes - mean(boot_slopes) + null_slope
+  mean(abs(shifted - null_slope) >= abs(observed_slope - null_slope))
 }
 
 # One scatter panel from long-format df_pre_post_scores
@@ -226,7 +332,8 @@ boot_ci <- function(x, y, x_grid, niter = 500) {
 make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
                                xlim = NULL, ylim = NULL,
                                x_breaks = NULL, y_breaks = NULL,
-                               niter = 500, show_ci = TRUE) {
+                               niter = 500, show_ci = TRUE, null_slope = 1,
+                               label_size = 3) {
   d <- df |> filter(type %in% c(x_type, y_type))
   if (!is.null(survey_label)) d <- d |> filter(Survey == survey_label)
   d <- d |>
@@ -237,16 +344,15 @@ make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
   dem_fit   <- deming::deming(y_val ~ x_val, data = d)
   intercept <- dem_fit$coefficients[1]
   slope     <- dem_fit$coefficients[2]
-  slope_se  <- dem_fit$se[2]
-  t_stat    <- slope / slope_se
-  p_val     <- 2 * pt(abs(t_stat), df = nrow(d) - 2, lower.tail = FALSE)
   r_sq      <- cor(d$x_val, d$y_val, use = "complete.obs")^2
-  p_label   <- if (p_val < 0.001) sprintf("R² = %.3f, p < 0.001", r_sq)
-               else sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
 
   x_seq     <- seq(min(d$x_val, na.rm = TRUE), max(d$x_val, na.rm = TRUE), length.out = 50)
-  ci        <- boot_ci(d$x_val, d$y_val, x_seq, niter)
-  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), ci)
+  boot_out  <- boot_ci(d$x_val, d$y_val, x_seq, niter)
+  p_val     <- boot_p_value(slope, boot_out$slopes, null_slope)
+  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
+
+  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f, p(slope=%g) < 0.001, R² = %.2f", slope, null_slope, r_sq)
+               else sprintf("slope = %.2f, p(slope=%g) = %.2f, R² = %.2f", slope, null_slope, p_val, r_sq)
 
   p <- ggplot(d, aes(x = x_val, y = y_val)) +
     { if (show_ci) geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
@@ -254,7 +360,7 @@ make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
     geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
     geom_point(aes(shape = ac.type, color = ac.type)) +
     annotate("text", x = Inf, y = Inf, label = p_label,
-             hjust = 1.05, vjust = 1.5, size = 3, fontface = "italic") +
+             hjust = 1.05, vjust = 1.5, size = label_size, fontface = "italic") +
     labs(title = survey_label,
          x = if (is.null(survey_label)) paste("Difference in", x_type) else paste(x_type, "Score"),
          y = if (is.null(survey_label)) paste("Difference in", y_type) else paste(y_type, "Score"),
@@ -273,23 +379,23 @@ make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
 # One scatter panel from wide-format df_diff with column names as x/y (difference scores)
 make_deming_panel_diff <- function(df, x_var, y_var,
                                    xlim = NULL, ylim = NULL,
-                                   x_breaks = NULL, y_breaks = NULL) {
+                                   x_breaks = NULL, y_breaks = NULL,
+                                   null_slope = 1, label_size = 3) {
   x <- df[[x_var]]
   y <- df[[y_var]]
 
   dem_fit   <- deming::deming(y ~ x)
   intercept <- dem_fit$coefficients[1]
   slope     <- dem_fit$coefficients[2]
-  slope_se  <- dem_fit$se[2]
-  t_stat    <- slope / slope_se
-  p_val     <- 2 * pt(abs(t_stat), df = length(na.omit(x)) - 2, lower.tail = FALSE)
   r_sq      <- cor(x, y, use = "complete.obs")^2
-  p_label   <- if (p_val < 0.001) sprintf("R² = %.3f, p < 0.001", r_sq)
-               else sprintf("R² = %.3f, p = %.3f", r_sq, p_val)
 
   x_seq     <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 50)
-  ci        <- boot_ci(x, y, x_seq)
-  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), ci)
+  boot_out  <- boot_ci(x, y, x_seq)
+  p_val     <- boot_p_value(slope, boot_out$slopes, null_slope)
+  intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
+
+  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f, p(slope=%g) < 0.001, R² = %.2f", slope, null_slope, r_sq)
+               else sprintf("slope = %.2f, p(slope=%g) = %.2f, R² = %.2f", slope, null_slope, p_val, r_sq)
 
   ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
     geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
@@ -297,7 +403,7 @@ make_deming_panel_diff <- function(df, x_var, y_var,
     geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
     geom_point(aes(shape = ac.type, color = ac.type)) +
     annotate("text", x = Inf, y = Inf, label = p_label,
-             hjust = 1.05, vjust = 1.5, size = 3, fontface = "italic") +
+             hjust = 1.05, vjust = 1.5, size = label_size, fontface = "italic") +
     labs(x = paste("Difference in", x_var), y = paste("Difference in", y_var),
          color = "House Type", shape = "House Type") +
     scale_color_manual(values = okabe_ito, name = "House Type") +
@@ -319,13 +425,15 @@ xlim     <- c(0.2, 0.8)
 ylim     <- c(0.3, 1.0)
 x_breaks <- seq(0.2, 0.8, by = 0.2)
 y_breaks <- seq(0.2, 1.0, by = 0.2)
+label_size <- 3
+null_slope <- 0
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
-p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
-p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
+p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
 
-final_plot <- (p1 | p2) / (p3 | p4) +
+final_plot <- (p1 | p3) / (p2 | p4) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
@@ -334,36 +442,35 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_plot.jp
 
 ```
 
-
-
+O3 vs PM2.5
+Compare the correlation between Ozone and PM2.5 Severity and Susceptibility and total threat for each pollutant before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
 ```{r}
 
-df_pre_post_knowledge <- df_pre_post_scores |> 
-  filter(type %in% c("Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge"))
+xlim     <- c(0.2, 0.8)
+ylim     <- c(0.3, 1.0)
+x_breaks <- seq(0.2, 0.8, by = 0.2)
+y_breaks <- seq(0.2, 1.0, by = 0.2)
+label_size <- 2.5
+null_slope <- 0
 
-set.seed(23)   
-## geom_point and geom_line
-ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
-  geom_jitter(width=0.01,height=0, aes(shape = ac.type, color = ac.type), alpha = 0.5)+
-  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
-  facet_wrap(type~.,nrow = 1, scales = "free_y") +
-  labs(
-    x = "Survey",
-    y = "Knowledge score",
-    color = "Home Type",
-    shape = "AC Type"
-  ) +
-  theme_bw() +
-  theme(legend.position = "bottom") +
- scale_color_manual(values = okabe_ito, name = "House Type") +
- scale_shape_manual(values = c(16, 17), name = "House Type") 
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p4 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p6 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_overall_change_lines.jpeg")
-
-
-
+final_plot <-  (p1 | p3 ) / (p2 | p5) / (p3 | p6) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_O3_vs_PM2.5_plot.jpeg",
+       width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
 
 ```
+
+
+
 
 
 
