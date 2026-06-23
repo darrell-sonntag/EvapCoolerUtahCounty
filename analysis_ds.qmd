@@ -369,7 +369,16 @@ Knowledge before and after graphs
 
 df_pre_post_knowledge <- df_pre_post_scores |> 
   filter(type %in% c("Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge")) |> 
-  mutate(type = factor(type, levels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"), labels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Pollutant Knowledge"),ordered = TRUE)) 
+  mutate(type = factor(type, levels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"), labels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Pollutant Knowledge"),ordered = TRUE))
+
+houses_knowledge_PM_label_df <- df_pre_post_knowledge |> 
+  filter(HouseID %in% c("H29", "H02"), str_starts(type, "PM2.5"))
+
+houses_knowledge_O3_label_df <- df_pre_post_knowledge |> 
+  filter(HouseID %in% c("H02", "H05"), str_starts(type, "O3"))
+
+houses_total_knowledge_label_df <- df_pre_post_knowledge |> 
+  filter(HouseID %in% c("H29", "H02", "H05"), str_starts(type, "Total"))
 
 pre_post_knowledge_means <- df_pre_post_knowledge |> 
                             group_by(type,Survey) |> 
@@ -382,6 +391,84 @@ ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
   geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
      geom_point(data=pre_post_knowledge_means, shape = 4, color='black',size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
   facet_wrap(type~.,nrow = 1, scales = "free_y") +
+  geom_label_repel(
+    data = houses_knowledge_O3_label_df |> filter(Survey == "Pre-Intervention"),
+    aes(label = HouseID),
+    xlim = c(-Inf, 0.8),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  ) +
+  geom_label_repel(
+    data = houses_knowledge_O3_label_df |> filter(Survey == "Post-Intervention"),
+    aes(label = HouseID),
+    xlim = c(2.2, Inf),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  ) +
+  geom_label_repel(
+    data = houses_knowledge_PM_label_df |> filter(Survey == "Pre-Intervention"),
+    aes(label = HouseID),
+    xlim = c(-Inf, 0.8),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  )+
+  geom_label_repel(
+    data = houses_knowledge_PM_label_df |> filter(Survey == "Post-Intervention"),
+    aes(label = HouseID),
+    xlim = c(2.2, Inf),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  )+
+  geom_label_repel(
+    data = houses_total_knowledge_label_df |> filter(Survey == "Pre-Intervention"),
+    aes(label = HouseID),
+    xlim = c(-Inf, 0.8),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  )+
+  geom_label_repel(
+    data = houses_total_knowledge_label_df |> filter(Survey == "Post-Intervention"),
+    aes(label = HouseID),
+    xlim = c(2.2, Inf),
+    size = 2,
+    min.segment.length = 0.5,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    point.padding = 0,
+    show.legend = FALSE,
+    alpha = 0.7
+  )+
   labs(
     x = "Survey",
     y = "Knowledge score",
