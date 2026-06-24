@@ -203,11 +203,10 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
     caption = "✕ = mean"
   ) +
   theme_bw() +
-(a) indoor/outdoor ratios and changes in perceived threat for PM2.5, and (b) i
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type")
 
-  ggsave(width = 7, height = 6, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
+ggsave(width = 7, height = 6, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
 
 
 
@@ -1286,6 +1285,216 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) 
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
 ```
+
+
+
+Figure 2 for Q29 for knowledge
+knowledge score by behavior change group, with lines connecting the same HouseID across surveys.
+
+```{r}
+
+## geom_point and geom_line
+ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
+    geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q29))+
+   geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
+  facet_wrap(~Post_response_Q29) +
+  labs(
+    x = "Survey",
+    y = "Total knowledge score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+    geom_label_repel(
+    data = threat_behavior_score_Q29_2 |>
+      filter(Survey == "Pre-Intervention"),
+    aes(label = HouseID),
+    size = 3,
+    min.segment.length = .6,
+    segment.color = "grey70",
+    color = 'grey70',
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha=0.7
+  ) +
+ scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
+  theme_bw()
+
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_diff_by_behavior_lines_Q29.tiff")
+
+
+```
+
+
+Figure 3 for Question 29 for knowledge
+
+```{r}
+library(ggrepel)
+
+threat_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |> 
+  select(HouseID, ac.type, Post_response_Q29, Survey, knowledge_score) |>
+  pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q29), names_from = Survey, values_from = knowledge_score) |> 
+  mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
+ filter(!is.na(score_diff))
+
+
+jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
+
+ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff, color = Post_response_Q29)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
+  geom_label_repel(
+    aes(label = HouseID),
+    position = jitter_pos,
+    size = 3,
+    min.segment.length = .6,  
+    segment.color = "grey70", 
+    color = 'grey70',
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha=0.7
+  ) +
+  labs(
+    x = "Change in home to improve indoor air quality  (Q29)",
+    y = "Difference in knowledge score (post - pre)",
+    color = "Home ID",
+    shape = "AC Type"
+  ) +
+  geom_signif(
+    comparisons = list(c('Change', 'No Change')),
+    map_signif_level = function(p) sprintf("p = %.2f", p),
+    test = 't.test',
+    color = 'black',
+    vjust = 0,
+    margin_top = 0.1
+  ) +
+  scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
+  guides(color = "none") +    
+  theme_bw()+
+  expand_limits(y=4.0)
+
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_Q29.jpeg")
+
+
+```
+
+
+
+Figure 4 for Q29 for Knowledge
+
+```{r}
+
+names(threat_behavior_score_Q29)
+
+set.seed(123) # for reproducibility of jitter
+ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) +
+  geom_boxplot(data = threat_behavior_score_Q29 , outlier.shape = NA)+
+   geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
+  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre-Intervention"= "Pre-Intervention (n=14)", "Post-Intervention" = "Post-Intervention (n=15)"))) +
+    geom_signif(
+    comparisons = list(c('Change', 'No Change')),
+    map_signif_level = function(p) sprintf("p = %.3f", p),
+    test = 't.test',
+    color = 'black',
+    vjust = 0,
+    margin_top = 0.1
+  ) +
+  labs(
+    x = "Change in Behavior due to Outdoor Air Quality (Q29)",
+    y = "Knowledge Score",
+    color = "Home Type",
+    shape = "AC Type"
+  ) +
+  #scale_color_grey()+
+ scale_color_manual(values = okabe_ito[7:8], name = "House Type") +
+    guides(color = "none") + 
+  theme_bw()
+
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
+```
+
+
+
+Figure 5 for Q29: Knowledge difference by Q29 behavior change group (in the post-suvey!)
+
+```{r}
+
+knowledge_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |> 
+  select(HouseID, ac.type, Post_response_Q29, Survey, knowledge_score) |>
+  pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q29), names_from = Survey, values_from = knowledge_score) |> 
+  mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
+ filter(!is.na(score_diff))
+
+
+tdf_knowledge_Q29 <- knowledge_behavior_score_Q29_diff |>
+  group_by(Post_response_Q29) |>
+  summarise(
+    n = n(),
+    `Pre-Intervention` = mean(`Pre-Intervention`,na.rm=T),
+    `Post-Intervention` = mean(`Post-Intervention`, na.rm=T),
+    mean_diff = mean(score_diff, na.rm = TRUE),
+    t_result = list(t.test(score_diff, mu = 0)),
+    .groups = "drop"
+  ) |>
+  mutate(
+    t_statistic = map_dbl(t_result, ~ .x$statistic),
+    p_value     = map_dbl(t_result, ~ .x$p.value),
+    ci_lower    = map_dbl(t_result, ~ .x$conf.int[1]),
+    ci_upper    = map_dbl(t_result, ~ .x$conf.int[2])
+  ) |>
+  select(Post_response_Q29, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, t_statistic, p_value, ci_lower, ci_upper)
+
+tdf_knowledge_Q29
+
+write_csv(tdf_knowledge_Q29,"./Processed Data/Q29_knowledge_difference_ttest.csv")
+
+# label data for plot annotations
+tdf_knowledge_Q29_labels <- tdf_knowledge_Q29 |>
+  mutate(label = paste0("mean = ", round(mean_diff, 2),
+                        "\nt = ", round(t_statistic, 2),
+                        ", p = ", round(p_value, 3)))
+
+jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
+
+ggplot(knowledge_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff, color = Post_response_Q29)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
+  geom_label_repel(
+    aes(label = HouseID),
+    position = jitter_pos,
+    size = 3,
+    min.segment.length = .6,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha = 0.7
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(
+    data = tdf_knowledge_Q29_labels,
+    aes(x = Post_response_Q29, label = label),
+    y = Inf, vjust = 1.3,
+    size = 3, fontface = "italic", inherit.aes = FALSE  ) +
+  labs(
+    x = "Change in behavior in post-intervention survey due to outdoor air pollution (Q25)",
+    y = "Difference in knowledge score (post - pre)",
+    color = "Behavior",
+    shape = "AC Type"
+  ) +
+  scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
+  guides(color = "none") +
+  theme_bw()+
+  expand_limits(y=4)
+
+
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_ttest.tiff")
+
+
+```
+
+
 
 Figure 5 for Q29: Compare threat perception and air quality scores, broken out by ac.type
 
