@@ -34,7 +34,12 @@ theme_set(
   theme_minimal(base_family = "Arial", base_size = 9)
 )
 
-df_raw <- read_csv("survey_aq_data_1-29-2026.csv")
+df_raw <- read_csv("./Processed Data/survey_aq_data.csv") |>
+  mutate(Score_mod = case_when(
+    QuestionID %in% c('Q01','Q02','Q03','Q04','Q05','Q06','Q07','Q08') &
+      HouseID == "H29" & Survey == "Post_Intervention" ~ NA,
+    TRUE ~ Score_mod
+  ))
 
 # create dataframe used for factor analysis
 fa_df <- df_raw %>%
@@ -84,6 +89,11 @@ Testing the difference between pre and post test scores gives a p-value of .07 a
 
 ```{r}
 
+   
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#000000",
+               "#332288", "#117733", "#44AA99", "#88CCEE",
+               "#DDCC77", "#882255")
 
 groups <- df_raw %>%
   filter(!QuestionID %in% c("Q23", "Q24")) %>% # duplicate quesitons
@@ -120,6 +130,7 @@ get_score_analysis <- function(qs, construct_name) {
   list(
     Construct = construct_name,
     data = test2_df,
+    n = sum(!is.na(test2_df$difference)),
     pre_score = mean(test2_df$Pre_Intervention),
     post_score = mean(test2_df$Post_Intervention),
     t_stat = unname(test$statistic),
@@ -149,6 +160,7 @@ results <- lapply(names(construct_qs), function(con) {
 summary_table <- bind_rows(lapply(results, function(x) {
   data.frame(
     Construct = x$Construct,
+    N = x$n,
     `Pre Survey Score` = round(x$pre_score, 2),
     `Post Survey Score` = round(x$post_score, 2),
     Difference = round(x$mean, 2),
@@ -180,7 +192,7 @@ tbl1 <- summary_table %>%
 tbl1
 #save_kable(tbl1, "construct_differences_table.jpeg")
 
-
+write_csv(summary_table,'./Processed Data/ttest_diff_risk_constructs.csv')
 
 risk_graphic_df <- bind_rows(lapply(results, function(x) {
   data.frame(
@@ -193,28 +205,37 @@ risk_graphic_df <- bind_rows(lapply(results, function(x) {
 
 risk_graphic_df_final <- risk_graphic_df[1:6,]
 
-construct_diff_plt <- ggplot(risk_graphic_df_final, aes(y = Construct, x = Mean)) +
-  geom_col(width = 0.6, fill = "grey70") +
+unique(risk_graphic_df_final$Construct)
+
+risk_graphic_df_final$Construct <- factor(risk_graphic_df_final$Construct, 
+levels = c("Perceived Susceptibility (O3)", "Perceived Susceptibility (PM2.5)",
+"Perceived Severity (O3)", "Perceived Severity (PM2.5)", "Perceived Threat (O3)", "Perceived Threat (PM2.5)"), ordered = TRUE)
+
+construct_diff_plt <- ggplot(risk_graphic_df_final, aes(y = Construct, x = Mean,fill = Construct)) +
+  geom_col(width = 0.6) +
   geom_errorbar(
     aes(xmin = ci_lower, xmax = ci_upper),
     width = 0.15,
     linewidth = .5
   ) +
   geom_label(aes(y = Construct, x = Mean, label = round(Mean, digits = 2),
-                 nudge_x = .00)) + 
+                 nudge_x = .00),fill='white',size=3) + 
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
   labs(
     x = "Score Difference",
     y = "Construct"
   ) +
-  theme_minimal() +
-  theme(
-    #axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
+  #theme_minimal() +
+  theme_bw()+
+   scale_fill_manual(values = okabe_ito[9:14], name = "House Type") +
+  theme(legend.position = 'none',
+  axis.text = element_text(size = 8),
+  axis.title = element_text(size = 10))+
+  scale_y_discrete(limits = rev)
+  
 construct_diff_plt
 
-#ggsave("construct_difference_plot.jpeg", construct_diff_plt)
+ggsave("./Graphics/Fig2_construct_difference_plot.tiff", construct_diff_plt,dpi = 300, units = 'in',width = 4, height = 4, )
 ```
 
 Paired t-tests broken down by air pollutant and construct type (perceived severity and perceived susceptibility) were run to test if risk perception changed from pre to post test. Results showed that with $\alpha = .05$ there doesn't appear to be a significant difference between risk perception pre to post survey overall for PM2.5 (p-value = .259). For O3, however we find a statistically significant difference in pre to post intervention risk perception (p-value = .02). Breaking down scores by severity and susceptibility showed that O3 perceived susceptibility scores dropped significantly (p-value = .048) while the drop in PM2.5 perceived susceptbility was not significant (p-value = .212). Changes in perceived severity for both PM2.5 and O3 were not significant (p-values of .806 and .08 respectively). Figure \# illustrates these results by showing the average change in perceived risk broken down by construct and pollutant with 95% confidence bands. All categories besides PM2.5 perceived severity have an average difference less than 0. Confidence bands also show that although we can't conclude that the difference in scores is negative, there is reason to believe that participation in this study may have led to an overall decrease in perceived risk for the subjects. It is important to note that for each construct (severity and susceptibility) and pollutant (PM2.5 and O3) there were 4 questions relating to that construct with the exception of PM2.5 perceived severity, where there were only 2 questions. This can explain why the confidence band is so high for this specific construct and why it doesn't seem to follow the patterns of the other constructs.
@@ -281,7 +302,13 @@ knowledge_pmtest <- t.test(knowledgepm_df$difference)
 
 knowledge_table_df <- data.frame(
   Pollutant = c("PM2.5", "O3", "Total"),
-  
+
+  N = c(
+    sum(!is.na(knowledgepm_df$difference)),
+    sum(!is.na(knowledge03_df$difference)),
+    sum(!is.na(knowledge_df$difference))
+  ),
+
   `Pre Survey Score` = c(
     round(mean(knowledgepm_df$Pre_Intervention, na.rm = TRUE), 2),
     round(mean(knowledge03_df$Pre_Intervention, na.rm = TRUE), 2),
@@ -336,6 +363,8 @@ tbl2 <- knowledge_table_df %>%
 tbl2
 #save_kable(tbl2, "knowledge_difference_tbl.jpeg")
 
+write_csv(knowledge_table_df,'./Processed Data/ttest_diff_knowledge.csv')
+
 knowledge_graph_df <- tibble(
   Pollutant = c("O3", "PM2.5", "Total"),
   Mean = c(knowledge_o3test$estimate, knowledge_pmtest$estimate, knowledge_test$estimate),
@@ -345,24 +374,29 @@ knowledge_graph_df <- tibble(
 
 library(ggplot2)
 
-knowledge_dif_plt <- ggplot(knowledge_graph_df, aes(y = Pollutant, x = Mean)) +
-  geom_col(width = 0.6, fill = "grey70") +
+knowledge_dif_plt <- ggplot(knowledge_graph_df, aes(y = Pollutant, x = Mean, fill =Pollutant)) +
+  geom_col(width = 0.6) +
   geom_errorbar(
     aes(xmin = ci_lower, xmax = ci_upper),
     width = 0.15,
     linewidth = .5
   ) +
-  geom_label(aes(y = Pollutant, x = Mean, label = round(Mean, digits = 2))) + 
+  geom_label(aes(y = Pollutant, x = Mean, label = round(Mean, digits = 2)), fill='white', size=3) + 
   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
   labs(
-    x = "Score Difference",
+    x = "Knowledge Score Difference",
     y = "Pollutant"
   ) +
-  theme_minimal()
+  theme_bw() +   
+  scale_fill_manual(values = okabe_ito[3:5], name = "House Type") +
+  theme(legend.position = 'none',
+  axis.text = element_text(size = 8),
+  axis.title = element_text(size = 10))+
+  scale_y_discrete(limits = rev)
 
 knowledge_dif_plt
 
-#ggsave("knowledge_difference_plot.jpeg" ,knowledge_dif_plt)
+ggsave("./Graphics/Fig3_knowledge_difference_plot.tiff", knowledge_dif_plt ,dpi = 300, units = 'in',width = 3, height = 3)
 
 ## Individual Question Results
 questions_df <- df_raw %>%
@@ -391,7 +425,7 @@ tbl3 <- questions_df %>%
   kable_styling(latex_options = "hold_position")
 tbl3
 
-#save_kable(tbl3, "knowledge_scores_tbl.jpeg")
+
 
 ```
 

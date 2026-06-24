@@ -725,7 +725,7 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
   theme_bw()+
   theme(legend.position ='bottom')
 
-  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_diff_by_behavior_lines.jpeg")
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig6_threat_diff_by_behavior_lines.tiff")
 
 
 ```
@@ -740,6 +740,8 @@ threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |>
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q25), names_from = Survey, values_from = threat_score) |> 
   mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
  filter(!is.na(score_diff))
+
+write_csv(threat_behavior_score_Q25_diff,'./Processed Data/threatbehavior_Score_Q25_diff.csv')
 
 
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
@@ -932,7 +934,7 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
   theme_bw()+
   theme(legend.position ='bottom')
 
-  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_diff_by_behavior_lines.jpeg")
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig7_knowledge_diff_by_behavior_lines.tiff")
 ```
 
 
@@ -1132,7 +1134,7 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = threat_score, color = Q29)) +
   guides(color = "none") + 
   theme_bw()
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot_Q29.jpeg")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig8_threat_behavior_plot_Q29.tiff")
 
 ```
 
@@ -1489,7 +1491,7 @@ ggplot(knowledge_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_d
   expand_limits(y=4)
 
 
-ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_ttest.tiff")
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_ttest_Q29.tiff")
 
 
 ```
@@ -1816,6 +1818,6 @@ scale_x_continuous(limits = c(0,16), breaks = seq(0, 16, by = 4)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type") 
   
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/IO_vs_diff_threat_order.jpeg")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/IO_vs_diff_threat_order.tiff")
 
 ```
