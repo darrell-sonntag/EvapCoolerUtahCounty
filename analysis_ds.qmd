@@ -320,7 +320,6 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
 
 ```
 
-
 Compare the averages of the severity vs the susceptibility for the pollutants...(not sure this will be included in the final SI)
 
 ```{r}
@@ -363,7 +362,6 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 ```
 
 Knowledge before and after graphs
-
 
 ```{r}
 
@@ -642,8 +640,7 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_plot.jp
 
 ```
 
-O3 vs PM2.5
-Compare the correlation between Ozone and PM2.5 Severity and Susceptibility and total threat for each pollutant before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
+O3 vs PM2.5 Compare the correlation between Ozone and PM2.5 Severity and Susceptibility and total threat for each pollutant before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
 
 ```{r}
 
@@ -669,15 +666,6 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_O3_vs_P
        width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
 
 ```
-
-
-
-
-
-
-
-
-
 
 ```{r}
 
