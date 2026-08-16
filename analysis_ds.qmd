@@ -506,14 +506,14 @@ y_breaks <- seq(0.2, 1.0, by = 0.2)
 label_size <- 2.5
 null_slope <- 1
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p4 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p5 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 
-final_plot <-  (p1 | p3 ) / (p2 | p5) / (p3 | p6) +
+final_plot <-  (p1 | p3 ) / (p2 | p4) / (p5 | p6) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
@@ -607,7 +607,7 @@ p4 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility",
 p5 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 
-final_plot <- (p1 | p4 ) / (p2 | p5) / (p3 | p6 ) +
+final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
@@ -634,7 +634,7 @@ p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibi
 p5 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 
-final_plot <- (p1 | p4 ) / (p2 | p5) / (p3 | p6 ) +
+final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
@@ -674,7 +674,7 @@ label_size <- 2.5
 plots <- lapply(plot_specs, function(s)
   make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, title = s$y))
 
-combined <- (plots[[1]] | plots[[4]]) / (plots[[2]] | plots[[5]]) /
+combined <- (plots[[2]] | plots[[5]]) / (plots[[1]] | plots[[6]]) /
             (plots[[3]] | plots[[6]]) 
 
 final_plot <- combined +
