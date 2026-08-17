@@ -21,6 +21,7 @@ library(ggrepel)
 library(kableExtra)
 library(patchwork)
 library(ggrepel)
+library(coin) # This package gives us a more robust version of the wilcox test (wilcox_test(value ~ group, data = df))
 # set theming
 
 theme_set(
