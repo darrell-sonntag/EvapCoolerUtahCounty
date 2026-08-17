@@ -525,10 +525,13 @@ boot_ci <- function(x, y, x_grid, niter = 500) {
 }
 
 # Two-sided bootstrap p-value for H0: slope = null_slope
-boot_p_value <- function(observed_slope, boot_slopes, null_slope) {
+# Percentile-reversal method: guaranteed consistent with a percentile CI
+# (p < alpha exactly when null_slope falls outside the [alpha/2, 1-alpha/2]
+# percentile interval of boot_slopes), unlike recentering-based methods which
+# assume the bootstrap distribution is symmetric.
+boot_p_value <- function(boot_slopes, null_slope) {
   boot_slopes <- boot_slopes[!is.na(boot_slopes)]
-  shifted     <- boot_slopes - mean(boot_slopes) + null_slope
-  mean(abs(shifted - null_slope) >= abs(observed_slope - null_slope))
+  2 * min(mean(boot_slopes <= null_slope), mean(boot_slopes >= null_slope))
 }
 
 # One scatter panel from long-format df_pre_post_scores
@@ -552,19 +555,21 @@ make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
 
   x_seq     <- seq(min(d$x_val, na.rm = TRUE), max(d$x_val, na.rm = TRUE), length.out = 50)
   boot_out  <- boot_ci(d$x_val, d$y_val, x_seq, niter)
-  p_val     <- boot_p_value(slope, boot_out$slopes, null_slope)
+  p_val     <- boot_p_value(boot_out$slopes, null_slope)
+  slope_ci  <- quantile(boot_out$slopes, c(0.025, 0.975), na.rm = TRUE)
   intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
 
-  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f, p(slope=%g) < 0.001, R² = %.2f", slope, null_slope, r_sq)
-               else sprintf("slope = %.2f, p(slope=%g) = %.2f, R² = %.2f", slope, null_slope, p_val, r_sq)
+  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) < 0.001\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, r_sq)
+               else if (p_val < 0.01) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.3f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope,p_val, r_sq)
+               else sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.2f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, p_val, r_sq)
 
   p <- ggplot(d, aes(x = x_val, y = y_val)) +
     { if (show_ci) geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
                 inherit.aes = FALSE, alpha = 0.3, fill = "grey") } +
     geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
     geom_point(aes(shape = ac.type, color = ac.type)) +
-    annotate("text", x = Inf, y = Inf, label = p_label,
-             hjust = 1.05, vjust = 1.5, size = label_size, fontface = "italic") +
+    annotate("text", x = -Inf, y = Inf, label = p_label,
+             hjust = -0.05, vjust = 1.5, size = label_size, fontface = "italic") +
     labs(title = survey_label,
          x = if (is.null(survey_label)) paste("Difference in", x_type) else paste(x_type, "Score"),
          y = if (is.null(survey_label)) paste("Difference in", y_type) else paste(y_type, "Score"),
@@ -596,19 +601,21 @@ make_deming_panel_diff <- function(df, x_var, y_var,
 
   x_seq     <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 50)
   boot_out  <- boot_ci(x, y, x_seq)
-  p_val     <- boot_p_value(slope, boot_out$slopes, null_slope)
+  p_val     <- boot_p_value(boot_out$slopes, null_slope)
+  slope_ci  <- quantile(boot_out$slopes, c(0.025, 0.975), na.rm = TRUE)
   intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
 
-  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f, p(slope=%g) < 0.001, R² = %.2f", slope, null_slope, r_sq)
-               else sprintf("slope = %.2f, p(slope=%g) = %.2f, R² = %.2f", slope, null_slope, p_val, r_sq)
+  p_label   <- if (p_val < 0.001) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) < 0.001\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, r_sq)
+               else if (p_val < 0.01) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.3f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope,p_val, r_sq)
+               else sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.2f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, p_val, r_sq)
 
   ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
     geom_ribbon(data = intervals, aes(x = x_val, ymin = `2.5%`, ymax = `97.5%`),
                 inherit.aes = FALSE, alpha = 0.3, fill = "grey") +
     geom_line(data = intervals, aes(x = x_val, y = .fitted), color = "black") +
     geom_point(aes(shape = ac.type, color = ac.type)) +
-    annotate("text", x = Inf, y = Inf, label = p_label,
-             hjust = 1.05, vjust = 1.5, size = label_size, fontface = "italic") +
+    annotate("text", x = -Inf, y = Inf, label = p_label,
+             hjust = -0.05, vjust = 1.5, size = label_size, fontface = "italic") +
     labs(title = title, x = paste("Difference in", x_var), y = paste("Difference in", y_var),
          color = "House Type", shape = "House Type") +
     scale_color_manual(values = okabe_ito, name = "House Type") +
@@ -624,6 +631,9 @@ make_deming_panel_diff <- function(df, x_var, y_var,
 
 Compare the correlation between Severity and Susceptibility, and the correlation between Threat and Knowledge, for both O3 and PM2.5, before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
 
+
+Figure S-1 Severity vs .Susceptibility by pollutant and survey
+
 ```{r}
 
 xlim     <- c(0.2, 0.8)
@@ -631,7 +641,7 @@ ylim     <- c(0.3, 1.0)
 x_breaks <- seq(0.2, 0.8, by = 0.2)
 y_breaks <- seq(0.2, 1.0, by = 0.2)
 label_size <- 3
-null_slope <- 0
+null_slope <- 1
 
 p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
 p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
@@ -647,7 +657,44 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_plot.jp
 
 ```
 
-O3 vs PM2.5 Compare the correlation between Ozone and PM2.5 Severity and Susceptibility and total threat for each pollutant before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
+Figure S-2 Difference in susceptibility and the difference in severity grouped by pollutant
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+plot_specs <- list(
+  list(x = "O3 Severity",    y = "O3 Susceptibility"),
+  list(x = "PM2.5 Severity", y = "PM2.5 Susceptibility")
+)
+
+xlim     <- c(-0.6, 0.2)
+ylim     <- c(-0.4, 0.2)
+x_breaks <- seq(-0.6, 0.4, by = 0.2)
+y_breaks <- seq(-0.4, 0.4, by = 0.2)
+null_slope <- 1
+label_size <- 2.5
+
+plots <- lapply(plot_specs, function(s)
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size))
+
+combined <- (plots[[1]] | plots[[2]]) 
+
+final_plot <- combined +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+
+ggsave(plot = final_plot, filename = "./Graphics/risk_construct_difference.tiff",
+       width = 7, height = 4, dpi = 300, units = "in", bg = "white")
+
+
+```
+
+Figure S-3
+
+O3 vs PM2.5
+Compare the correlation between Ozone and PM2.5 Severity and Susceptibility and total threat for each pollutant before and after the intervention. Make scatterplots with linear regression lines and R²/p-value annotations for each of these relationships.
 
 ```{r}
 
@@ -656,16 +703,16 @@ ylim     <- c(0.3, 1.0)
 x_breaks <- seq(0.2, 0.8, by = 0.2)
 y_breaks <- seq(0.2, 1.0, by = 0.2)
 label_size <- 2.5
-null_slope <- 0
+null_slope <- 1
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p4 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p5 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 
-final_plot <-  (p1 | p3 ) / (p2 | p5) / (p3 | p6) +
+final_plot <-  (p1 | p3 ) / (p2 | p4) / (p5 | p6) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
@@ -673,6 +720,46 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_O3_vs_P
        width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
 
 ```
+
+
+Figure S-4. Difference in Risk severity between O3 and PM2.5 by different risk constructs.
+
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+plot_specs <- list(
+  list(x = "O3 Severity",    y = "PM2.5 Severity"),
+  list(x = "O3 Susceptibility", y = "PM2.5 Susceptibility"),
+   list(x = "O3 Threat", y = "PM2.5 Threat")
+)
+
+xlim     <- c(-0.6, 0.4)
+ylim     <- c(-0.6, 0.4)
+x_breaks <- seq(-0.6, 0.4, by = 0.2)
+y_breaks <- seq(-0.6, 0.4, by = 0.2)
+null_slope <- 1
+label_size <- 2.5
+
+plots <- lapply(plot_specs, function(s)
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size))
+
+combined <- (plots[[1]] / plots[[2]] / plots[[3]]) 
+
+final_plot <- combined +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+final_plot
+
+ggsave(plot = final_plot, filename = "./Graphics/pollutant_risk_difference.tiff",
+       width = 5, height = 8, dpi = 300, units = "in", bg = "white")
+
+
+```
+
+
+
 
 Threat vs. Knowledge Plots
 
@@ -683,7 +770,7 @@ ylim     <- c(0.2, 0.8)
 x_breaks <- seq(0, 4, by = 0.5)
 y_breaks <- seq(0.2, 0.8, by = 0.2)
 label_size <- 3
-null_slope <- 0
+null_slope <- 1
 
 
 p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge",    "O3 Threat",    "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
@@ -701,6 +788,7 @@ ggsave(plot = final_plot, filename = "./Graphics/knowledge_threat_plot.jpeg",
 ```
 
 O3 threats vs PM2.5 Threats
+Figure S-5
 
 ```{r}
 
@@ -718,16 +806,16 @@ p4 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility",
 p5 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 
-final_plot <- (p1 | p4 ) / (p2 | p5) / (p3 | p6 ) +
+final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
 ggsave(plot = final_plot, filename = "./Graphics/O3_knowledge_threat_plot.jpeg",
-       width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
+       width = 6, height = 7, dpi = 300, units = "in", bg = "white")
 
 ```
 
-Now PM2.5
+Figure S-6 PM2.5
 
 ```{r}
 
@@ -745,15 +833,17 @@ p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibi
 p5 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 p6 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
 
-final_plot <- (p1 | p4 ) / (p2 | p5) / (p3 | p6 ) +
+final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 final_plot
 ggsave(plot = final_plot, filename = "./Graphics/PM2.5_knowledge_threat_plot.jpeg",
-       width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
+       width = 6, height = 7, dpi = 300, units = "in", bg = "white")
 
 ```
 
+
+Figure S-7
 Plot O3 knowledge vs. O3 threat, and PM2.5 knowledge vs. PM2.5 threat, for pre and post intervention surveys, with linear regression lines and R²/p-value annotations.
 
 Make graphs between difference in knowledge and threat scores
@@ -783,7 +873,7 @@ label_size <- 2.5
 plots <- lapply(plot_specs, function(s)
   make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, title = s$y))
 
-combined <- (plots[[1]] | plots[[4]]) / (plots[[2]] | plots[[5]]) /
+combined <- (plots[[2]] | plots[[5]]) / (plots[[1]] | plots[[6]]) /
             (plots[[3]] | plots[[6]]) 
 
 final_plot <- combined +
