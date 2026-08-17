@@ -34,12 +34,14 @@ theme_set(
   theme_minimal(base_family = "Arial", base_size = 9)
 )
 
+
 df_raw <- read_csv("./Processed Data/survey_aq_data.csv") |>
   mutate(Score_mod = case_when(
     QuestionID %in% c('Q01','Q02','Q03','Q04','Q05','Q06','Q07','Q08') &
       HouseID == "H29" & Survey == "Post_Intervention" ~ NA,
     TRUE ~ Score_mod
   ))
+
 
 # create dataframe used for factor analysis
 fa_df <- df_raw %>%

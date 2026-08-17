@@ -1,0 +1,9 @@
+Outcome,Survey,Term,Estimate,Std. Error,T-stat,P-value,R²
+Threat Score,Post Intervention,Intercept (Change group),43.5,2.193,19.834,0,0.287
+Threat Score,Post Intervention,Group: No Change,-8.7,3.799,-2.29,0.039,0.287
+Threat Score,Pre Intervention,Intercept (Change group),42.833,1.5,28.548,0,0.001
+Threat Score,Pre Intervention,Group: No Change,-0.333,3.97,-0.084,0.934,0.001
+Knowledge Score,Post Intervention,Intercept (Change group),5.025,0.396,12.691,0,0.003
+Knowledge Score,Post Intervention,Group: No Change,0.125,0.686,0.182,0.858,0.003
+Knowledge Score,Pre Intervention,Intercept (Change group),3.583,0.39,9.185,0,0.062
+Knowledge Score,Pre Intervention,Group: No Change,0.917,1.032,0.888,0.392,0.062
