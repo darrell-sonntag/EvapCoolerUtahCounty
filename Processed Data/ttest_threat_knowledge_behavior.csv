@@ -1,0 +1,5 @@
+Outcome,Survey,Mean (Change),Mean (No Change),T-stat,df,P-value,95% CI
+Threat Score,Pre Intervention,42.83,42.5,0.06,1.1,0.962,"(-54.3, 54.96)"
+Threat Score,Post Intervention,43.5,34.8,1.74,4.6,0.147,"(-4.45, 21.85)"
+Knowledge Score,Pre Intervention,3.58,4.5,-1.43,2.6,0.261,"(-3.14, 1.31)"
+Knowledge Score,Post Intervention,5.03,5.15,-0.18,8.3,0.859,"(-1.68, 1.43)"
