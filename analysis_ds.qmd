@@ -8,7 +8,6 @@ execute:
   warning: false
 ---
 
-
 ## Data
 
 House 6 Pre-Intervention has NAs for Q12 and Q13. House 33 Pre-Intervention has an NA for Q11. We used KNN imputation to impute these missing values for the analysis.
@@ -675,12 +674,7 @@ ggsave(plot = final_plot, filename = "./Graphics/severity_susceptibility_O3_vs_P
 
 ```
 
-
-
-
 Threat vs. Knowledge Plots
-
-
 
 ```{r}
 
@@ -1225,7 +1219,6 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 ```
 
-
 Figure 2 for Q25 for Knowledge (by Behavior change group in post-survey)
 
 ```{r}
@@ -1268,7 +1261,6 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
 
   ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig7_knowledge_diff_by_behavior_lines.tiff")
 ```
-
 
 Figure 3 for Question 25 knowledge by behavior change in post-survey
 
@@ -1392,9 +1384,6 @@ ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = 
 
 
 ```
-
-
-
 
 Figure 6 for Q25: Compare threat perception and air quality scores, broken out by ac.type
 
@@ -1602,7 +1591,6 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 Figure 2 for Q29 for knowledge
 knowledge score by behavior change group, with lines connecting the same HouseID across surveys.
 
-```{r}
 
 ## geom_point and geom_line
 ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
@@ -1634,7 +1622,6 @@ ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
 
 
 ```
-
 
 Figure 3 for Question 29 for knowledge
 
@@ -1689,8 +1676,6 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 
 ```
 
-
-
 Figure 4 for Q29 for Knowledge
 
 ```{r}
@@ -1724,8 +1709,6 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) 
 
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
 ```
-
-
 
 Figure 5 for Q29: Knowledge difference by Q29 behavior change group (in the post-suvey!)
 
@@ -1805,8 +1788,6 @@ ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = 
 
 ```
 
-
-
 Figure 5 for Q29: Compare threat perception and air quality scores, broken out by ac.type
 
 ```{r}
@@ -1867,11 +1848,6 @@ O3_facet_r2 <- threat_behavior_knowledge_Q25 %>%
 
 
 ```
-
-
-
-
-
 
 ## Risk perception vs. PM2.5 and O3 air quality scores
 
@@ -1962,7 +1938,6 @@ PM_facet_r2 <- threat_behavior_knowledge_Q25 %>%
 
 Combine all homes together
 
-```{r}
 
 ## try PM specific threat...combine AC and EC homes
 
@@ -2006,13 +1981,7 @@ ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename 
 
 ```
 
-  geom_text(
-    data = PM_facet_r2,
-    aes(x = x, y = y, label = label),
-    hjust = 0.8,
-    vjust = -1,
-    size = 3.5
-  ) +
+geom_text( data = PM_facet_r2, aes(x = x, y = y, label = label), hjust = 0.8, vjust = -1, size = 3.5 ) +
 
 ```{r}
 ## threat vs Ozone
@@ -2053,7 +2022,6 @@ ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename 
 
 
 ```
-
 
 Combine all homes together
 
@@ -2131,9 +2099,7 @@ ggsave(width = 7, height = 3.5, dpi = 300, units = "in", bg = "white", filename 
 
 ```
 
-
-
-Difference in Threat vs. order of Indoor/Outdoor ratio 
+Difference in Threat vs. order of Indoor/Outdoor ratio
 
 ```{r}
 
