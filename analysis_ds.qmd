@@ -466,14 +466,14 @@ library(ggplot2)
 library(patchwork)
 
 plot_specs <- list(
-  list(x = "O3 Severity",    y = "O3 Susceptibility"),
-  list(x = "PM2.5 Severity", y = "PM2.5 Susceptibility")
+  list(y = "O3 Severity",    x = "O3 Susceptibility"),
+  list(y = "PM2.5 Severity", x = "PM2.5 Susceptibility")
 )
 
 xlim     <- c(-0.6, 0.2)
-ylim     <- c(-0.4, 0.2)
+ylim     <- c(-0.6, 0.2)
 x_breaks <- seq(-0.6, 0.4, by = 0.2)
-y_breaks <- seq(-0.4, 0.4, by = 0.2)
+y_breaks <- seq(-0.6, 0.4, by = 0.2)
 null_slope <- 1
 label_size <- 2.5
 
