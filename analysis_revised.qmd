@@ -4,6 +4,8 @@ library(tidyverse)
 library(coin)
 library(knitr)
 library(kableExtra)
+library(VIM)
+library(ggrepel)
 ```
 
 ```{r}
@@ -169,3 +171,318 @@ tbl_grouped <- summary_table %>%
 tbl_grouped
 ```
 
+Fig 2 (Wilcoxon version): same layout as the t-test bar chart, but plotting each construct's Hodges-Lehmann estimate of the pre/post shift with its Wilcoxon-based confidence interval, taken directly from `results` (`wilcoxon_score_analysis` output) instead of a t-test mean/CI.
+```{r}
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#000000",
+               "#332288", "#117733", "#44AA99", "#88CCEE",
+               "#DDCC77", "#882255")
+
+risk_graphic_df <- bind_rows(lapply(results, function(x) {
+  data.frame(
+    Construct = x$Construct,
+    Estimate = x$estimate,
+    ci_lower = x$ci[1],
+    ci_upper = x$ci[2]
+  )
+}))
+
+risk_graphic_df$Construct <- factor(risk_graphic_df$Construct,
+  levels = c("Perceived Susceptibility (O3)", "Perceived Susceptibility (PM2.5)",
+             "Perceived Severity (O3)", "Perceived Severity (PM2.5)",
+             "Perceived Threat (O3)", "Perceived Threat (PM2.5)"), ordered = TRUE)
+
+construct_diff_wilcox_plt <- ggplot(risk_graphic_df, aes(y = Construct, x = Estimate, fill = Construct)) +
+  geom_col(width = 0.6) +
+  geom_errorbar(
+    aes(xmin = ci_lower, xmax = ci_upper),
+    width = 0.15,
+    linewidth = .5
+  ) +
+  geom_label(aes(y = Construct, x = Estimate, label = round(Estimate, digits = 2)),
+             fill = 'white', size = 3) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  labs(
+    x = "Score Difference",
+    y = "Construct"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = okabe_ito[9:14], name = "House Type") +
+  theme(legend.position = 'none',
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 10)) +
+  scale_y_discrete(limits = rev)
+
+construct_diff_wilcox_plt
+
+ggsave("./Graphics/Fig2_construct_difference_wilcox_plot.tiff", construct_diff_wilcox_plt,
+       dpi = 300, units = 'in', width = 4, height = 4)
+```
+
+### Knowledge Scores
+
+Wilcoxon version of the knowledge-score analysis (analysis.qmd's `t.test`-based cell): paired Wilcoxon signed-rank tests (via `wilcoxsign_test`, same approach as `wilcoxon_score_analysis` above) on pre/post knowledge score differences by pollutant, with Holm-adjusted p-values across the three tests to match the convention used for the risk-construct table.
+```{r}
+# Changes single response questions from -1 to 0
+qs_not_to_change <- c("Q04", "Q08")
+
+# overall knowledge
+knowledge_df <- df_raw %>%
+  filter(Construct_general == "Knowledge") %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+knowledgeo3_qs <- groups %>% filter(Construct == "Knowledge (O3)") %>% pull(QuestionIDs)
+knowledgepm_qs <- groups %>% filter(Construct == "Knowledge (PM2.5)") %>% pull(QuestionIDs)
+
+# o3 knowledge
+knowledge03_df <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  filter(QuestionID %in% knowledgeo3_qs[[1]]) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+# pm2.5 knowledge
+knowledgepm_df <- df_raw %>%
+  select(HouseID, Survey, QuestionID, Score_mod) %>%
+  mutate(Score_mod = case_when(!QuestionID %in% qs_not_to_change & Score_mod == -1 ~ 0,
+                               TRUE ~ Score_mod)) %>%
+  filter(QuestionID %in% knowledgepm_qs[[1]]) %>%
+  group_by(HouseID, Survey) %>%
+  summarize(score = sum(Score_mod)) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = HouseID,
+              names_from = Survey,
+              values_from = score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+# Paired Wilcoxon signed-rank test on a Pre/Post/difference df, mirroring
+# wilcoxon_score_analysis() above but without the total_possible normalization
+# (knowledge scores here are raw summed points, same as the t-test version).
+wilcoxon_knowledge_test <- function(df) {
+  test <- wilcoxsign_test(Post_Intervention ~ Pre_Intervention,
+                           data = df,
+                           distribution = "exact")
+
+  ci_est <- tryCatch({
+    test_ci <- wilcoxsign_test(Post_Intervention ~ Pre_Intervention,
+                                data = df,
+                                distribution = "exact",
+                                conf.int = TRUE)
+    ci_out <- confint(test_ci)
+    list(estimate = unname(ci_out$estimate), ci = ci_out$conf.int)
+  }, error = function(e) {
+    wt <- wilcox.test(df$Post_Intervention, df$Pre_Intervention,
+                       paired = TRUE, conf.int = TRUE, exact = TRUE)
+    list(estimate = unname(wt$estimate), ci = wt$conf.int)
+  })
+
+  list(
+    n = sum(!is.na(df$difference)),
+    pre_score = mean(df$Pre_Intervention, na.rm = TRUE),
+    post_score = mean(df$Post_Intervention, na.rm = TRUE),
+    z_stat = coin::statistic(test),
+    p_value = coin::pvalue(test),
+    median_diff = median(df$difference, na.rm = TRUE),
+    estimate = ci_est$estimate,
+    ci = ci_est$ci
+  )
+}
+
+knowledge_test <- wilcoxon_knowledge_test(knowledge_df)
+knowledge_o3test <- wilcoxon_knowledge_test(knowledge03_df)
+knowledge_pmtest <- wilcoxon_knowledge_test(knowledgepm_df)
+
+knowledge_raw_p <- c(knowledge_o3test$p_value, knowledge_pmtest$p_value, knowledge_test$p_value)
+knowledge_adj_p <- p.adjust(knowledge_raw_p, method = "holm")
+
+knowledge_table_df <- data.frame(
+  Pollutant = c("O3", "PM2.5", "Total"),
+
+  N = c(knowledge_o3test$n, knowledge_pmtest$n, knowledge_test$n),
+
+  `Pre Survey Score` = round(c(knowledge_o3test$pre_score, knowledge_pmtest$pre_score, knowledge_test$pre_score), 2),
+
+  `Post Survey Score` = round(c(knowledge_o3test$post_score, knowledge_pmtest$post_score, knowledge_test$post_score), 2),
+
+  `Median Difference` = round(c(knowledge_o3test$median_diff, knowledge_pmtest$median_diff, knowledge_test$median_diff), 2),
+
+  `Hodges-Lehmann Estimate` = round(c(knowledge_o3test$estimate, knowledge_pmtest$estimate, knowledge_test$estimate), 2),
+
+  `Z-stat` = round(c(knowledge_o3test$z_stat, knowledge_pmtest$z_stat, knowledge_test$z_stat), 2),
+
+  `P-value` = round(knowledge_raw_p, 3),
+
+  `Adj. P-value` = round(knowledge_adj_p, 3),
+
+  `95% CI` = c(
+    paste0("(", round(knowledge_o3test$ci[1], 2), ", ", round(knowledge_o3test$ci[2], 2), ")"),
+    paste0("(", round(knowledge_pmtest$ci[1], 2), ", ", round(knowledge_pmtest$ci[2], 2), ")"),
+    paste0("(", round(knowledge_test$ci[1], 2), ", ", round(knowledge_test$ci[2], 2), ")")
+  ),
+
+  check.names = FALSE
+)
+
+options(knitr.kable.NA = '--')
+tbl2_wilcox <- knowledge_table_df %>%
+  kable(
+    row.names = FALSE,
+    digits = 4,
+    booktabs = TRUE,
+    caption = "Wilcoxon Signed-Rank Tests of Pre- vs Post-Intervention Knowledge Differences by Pollutant"
+  ) %>%
+  kable_styling(latex_options = "hold_position",
+                font_size = 9,
+                full_width = FALSE) %>%
+  row_spec(0, extra_css = "font-family: Arial;")
+tbl2_wilcox
+
+write_csv(knowledge_table_df, './Processed Data/wilcox_diff_knowledge.csv')
+
+knowledge_graph_df <- tibble(
+  Pollutant = c("O3", "PM2.5", "Total"),
+  Estimate = c(knowledge_o3test$estimate, knowledge_pmtest$estimate, knowledge_test$estimate),
+  ci_lower = c(knowledge_o3test$ci[1], knowledge_pmtest$ci[1], knowledge_test$ci[1]),
+  ci_upper = c(knowledge_o3test$ci[2], knowledge_pmtest$ci[2], knowledge_test$ci[2]),
+)
+
+knowledge_dif_wilcox_plt <- ggplot(knowledge_graph_df, aes(y = Pollutant, x = Estimate, fill = Pollutant)) +
+  geom_col(width = 0.6) +
+  geom_errorbar(
+    aes(xmin = ci_lower, xmax = ci_upper),
+    width = 0.15,
+    linewidth = .5
+  ) +
+  geom_label(aes(y = Pollutant, x = Estimate, label = round(Estimate, digits = 2)), fill = 'white', size = 3) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  labs(
+    x = "Knowledge Score Difference",
+    y = "Pollutant"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = okabe_ito[3:5], name = "House Type") +
+  theme(legend.position = 'none',
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 10)) +
+  scale_y_discrete(limits = rev)
+
+knowledge_dif_wilcox_plt
+
+ggsave("./Graphics/Fig3_knowledge_difference_wilcox_plot.tiff", knowledge_dif_wilcox_plt,
+       dpi = 300, units = 'in', width = 3, height = 3)
+```
+
+### Difference in Threat vs. Order of Indoor/Outdoor Ratio
+
+Ported from analysis_ds.qmd. Reuses the O3/PM2.5 "Perceived Threat" pre/post differences already computed in `results` above (same normalized score, so no need to recompute from scratch) and joins in each house's AC type and mean Indoor/Outdoor ratio. Instead of the hardcoded p-value text labels in the original, the Spearman correlation is computed directly from the data so the label can't go stale.
+```{r}
+metadata <- df_raw %>%
+  filter(QuestionID == "Q25", Survey == "Pre_Intervention") %>%
+  select(HouseID, ac.type, mean_IO_PM_Summer, mean_IO_O3_Summer)
+
+get_construct_diff <- function(construct_name) {
+  results[[which(sapply(results, `[[`, "Construct") == construct_name)]]$data %>%
+    select(HouseID, score = difference)
+}
+
+threat_diff_by_pollutant <- bind_rows(
+  get_construct_diff("Perceived Threat (O3)") %>% mutate(pollutant = "O3"),
+  get_construct_diff("Perceived Threat (PM2.5)") %>% mutate(pollutant = "PM2.5")
+) %>%
+  left_join(metadata, by = "HouseID") %>%
+  mutate(IO_ratio = if_else(pollutant == "O3", mean_IO_O3_Summer, mean_IO_PM_Summer)) %>%
+  select(HouseID, ac.type, pollutant, score, IO_ratio)
+
+threat_diff_by_pollutant_order <- threat_diff_by_pollutant %>%
+  filter(!is.na(score)) %>%
+  group_by(pollutant) %>%
+  mutate(IO_order = dense_rank(IO_ratio)) %>%
+  ungroup()
+
+# Bootstrap percentile CI for Spearman's rho (nonparametric, consistent with
+# the rank-based tests used elsewhere in this document) since cor.test()
+# doesn't provide a CI for method = "spearman".
+spearman_stats <- threat_diff_by_pollutant_order %>%
+  filter(!is.na(IO_ratio)) %>%
+  group_split(pollutant) %>%
+  map_dfr(function(d) {
+    ct <- cor.test(d$score, d$IO_ratio, method = "spearman", exact = FALSE)
+    boot_fn <- function(data, indices) {
+      cor(data$score[indices], data$IO_ratio[indices], method = "spearman")
+    }
+    set.seed(3) # for reproducibility
+
+    # ci for bootstrap percentile interval. Bootstrapping keeps everything nonparametric / rank-based, so that it stays consistent with the Wilcoxon test methodologies
+    b <- boot::boot(d, boot_fn, R = 2000)
+    ci <- boot::boot.ci(b, type = "perc")$percent[4:5]
+    tibble(
+      pollutant = unique(d$pollutant),
+      rho = unname(ct$estimate),
+      p_val = ct$p.value,
+      ci_lower = ci[1],
+      ci_upper = ci[2]
+    )
+  })
+
+spearman_label <- spearman_stats %>%
+  mutate(label = paste0(
+    "rho = ", round(rho, 2),
+    " (95% CI: ", round(ci_lower, 2), ", ", round(ci_upper, 2), ")\n",
+    "p = ", round(p_val, 3)
+  ))
+
+set.seed(3)
+IO_vs_diff_threat_order_plt <- ggplot(threat_diff_by_pollutant_order, aes(y = score, x = IO_order)) +
+  geom_point(aes(shape = ac.type, color = ac.type)) +
+  facet_grid(. ~ pollutant, scales = "free_y") +
+  geom_text(data = spearman_label, aes(label = label),
+            x = Inf, y = Inf, hjust = 1.05, vjust = 1.5,
+            size = 3, fontface = "italic", inherit.aes = FALSE) +
+  geom_label_repel(
+    data = threat_diff_by_pollutant_order %>%
+      filter(HouseID %in% c('H02', 'H05')),
+    aes(label = HouseID),
+    size = 3,
+    nudge_x = -1,
+    min.segment.length = .2,
+    segment.color = "grey70",
+    color = 'grey70',
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha = 0.7,
+    seed = 5
+  ) +
+  labs(
+    y = "Difference in Threat (post - pre)",
+    x = "Rank in Indoor/Outdoor Ratio",
+    color = "Home Type",
+    shape = "Home Type"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  expand_limits(y = 0.11) +
+  scale_x_continuous(limits = c(0, 16), breaks = seq(0, 16, by = 4)) +
+  scale_color_manual(values = okabe_ito, name = "House Type") +
+  scale_shape_manual(values = c(16, 17), name = "House Type")
+
+IO_vs_diff_threat_order_plt
+
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
+       filename = "./Graphics/IO_vs_diff_threat_order.tiff")
+```
