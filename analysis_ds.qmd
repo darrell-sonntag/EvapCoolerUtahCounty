@@ -336,13 +336,33 @@ boot_p_value <- function(boot_slopes, null_slope) {
   2 * min(mean(boot_slopes <= null_slope), mean(boot_slopes >= null_slope))
 }
 
+# --- Collector for multiple-comparison adjustment ---
+# Every call to make_deming_panel()/make_deming_panel_diff() that passes a
+# `group` records one row here. Rows sharing a `group` value get adjusted
+# together (see build_deming_table() near the end of the document).
+deming_results <- tibble::tibble(
+  group = character(), comparison = character(), survey = character(),
+  null_slope = numeric(), slope = numeric(), ci_low = numeric(), ci_high = numeric(),
+  p_value = numeric()
+)
+
+record_deming_result <- function(group, comparison, survey, null_slope, slope, ci, p_value) {
+  if (is.null(group) || is.na(group)) return(invisible(NULL))
+  deming_results <<- bind_rows(
+    deming_results,
+    tibble::tibble(group = group, comparison = comparison, survey = survey,
+                    null_slope = null_slope, slope = slope,
+                    ci_low = unname(ci[1]), ci_high = unname(ci[2]), p_value = p_value)
+  )
+}
+
 # One scatter panel from long-format df_pre_post_scores
 # x_scale / y_scale: optional ggplot scale objects for axis limits/breaks
 make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
                                xlim = NULL, ylim = NULL,
                                x_breaks = NULL, y_breaks = NULL,
                                niter = 500, show_ci = TRUE, null_slope = 1,
-                               label_size = 3) {
+                               label_size = 3, group = NA_character_) {
   d <- df |> filter(type %in% c(x_type, y_type))
   if (!is.null(survey_label)) d <- d |> filter(Survey == survey_label)
   d <- d |>
@@ -360,6 +380,10 @@ make_deming_panel <- function(df, x_type, y_type, survey_label = NULL,
   p_val     <- boot_p_value(boot_out$slopes, null_slope)
   slope_ci  <- quantile(boot_out$slopes, c(0.025, 0.975), na.rm = TRUE)
   intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
+
+  record_deming_result(group = group, comparison = paste(x_type, "vs", y_type),
+                        survey = if (is.null(survey_label)) "Difference" else survey_label,
+                        null_slope = null_slope, slope = slope, ci = slope_ci, p_value = p_val)
 
   p_label   <- if (p_val < 0.001) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) < 0.001\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, r_sq)
                else if (p_val < 0.01) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.3f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope,p_val, r_sq)
@@ -392,7 +416,7 @@ make_deming_panel_diff <- function(df, x_var, y_var,
                                    xlim = NULL, ylim = NULL,
                                    x_breaks = NULL, y_breaks = NULL,
                                    null_slope = 1, label_size = 3,
-                                   title = NULL) {
+                                   title = NULL, group = NA_character_) {
   x <- df[[x_var]]
   y <- df[[y_var]]
 
@@ -406,6 +430,10 @@ make_deming_panel_diff <- function(df, x_var, y_var,
   p_val     <- boot_p_value(boot_out$slopes, null_slope)
   slope_ci  <- quantile(boot_out$slopes, c(0.025, 0.975), na.rm = TRUE)
   intervals <- bind_cols(data.frame(x_val = x_seq, .fitted = intercept + slope * x_seq), boot_out$ci)
+
+  record_deming_result(group = group, comparison = paste(x_var, "vs", y_var),
+                        survey = "Difference",
+                        null_slope = null_slope, slope = slope, ci = slope_ci, p_value = p_val)
 
   p_label   <- if (p_val < 0.001) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) < 0.001\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope, r_sq)
                else if (p_val < 0.01) sprintf("slope = %.2f [%.2f, %.2f], p(slope=%g) = %.3f\nR² = %.2f", slope, slope_ci[1], slope_ci[2], null_slope,p_val, r_sq)
@@ -445,10 +473,10 @@ y_breaks <- seq(0.2, 1.0, by = 0.2)
 label_size <- 3
 null_slope <- 1
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
-p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope, group = "O3 Construct")
+p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope, group = "PM2.5 Construct")
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "O3 Severity",   "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope, group = "O3 Construct")
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Susceptibility","PM2.5 Severity","Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = label_size, null_slope=null_slope, group = "PM2.5 Construct")
 
 final_plot <- (p1 | p3) / (p2 | p4) +
   plot_layout(guides = "collect") &
@@ -466,8 +494,8 @@ library(ggplot2)
 library(patchwork)
 
 plot_specs <- list(
-  list(y = "O3 Severity",    x = "O3 Susceptibility"),
-  list(y = "PM2.5 Severity", x = "PM2.5 Susceptibility")
+  list(y = "O3 Severity",    x = "O3 Susceptibility",    group = "O3 Construct"),
+  list(y = "PM2.5 Severity", x = "PM2.5 Susceptibility", group = "PM2.5 Construct")
 )
 
 xlim     <- c(-0.6, 0.2)
@@ -478,7 +506,7 @@ null_slope <- 1
 label_size <- 2.5
 
 plots <- lapply(plot_specs, function(s)
-  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size))
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, group = s$group))
 
 combined <- (plots[[1]] | plots[[2]]) 
 
@@ -506,12 +534,12 @@ y_breaks <- seq(0.2, 1.0, by = 0.2)
 label_size <- 2.5
 null_slope <- 1
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p4 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p5 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
-p6 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Severity","PM2.5 Severity","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
+p4 <- make_deming_panel(df_pre_post_scores, "O3 Susceptibility",   "PM2.5 Susceptibility",   "Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
+p6 <- make_deming_panel(df_pre_post_scores, "O3 Threat","PM2.5 Threat","Post-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope, group = "Pollutant Comparison")
 
 final_plot <-  (p1 | p3 ) / (p2 | p4) / (p5 | p6) +
   plot_layout(guides = "collect") &
@@ -531,9 +559,9 @@ library(ggplot2)
 library(patchwork)
 
 plot_specs <- list(
-  list(x = "O3 Severity",    y = "PM2.5 Severity"),
-  list(x = "O3 Susceptibility", y = "PM2.5 Susceptibility"),
-   list(x = "O3 Threat", y = "PM2.5 Threat")
+  list(x = "O3 Severity",    y = "PM2.5 Severity",       group = "Pollutant Comparison"),
+  list(x = "O3 Susceptibility", y = "PM2.5 Susceptibility", group = "Pollutant Comparison"),
+   list(x = "O3 Threat", y = "PM2.5 Threat",              group = "Pollutant Comparison")
 )
 
 xlim     <- c(-0.6, 0.4)
@@ -544,7 +572,7 @@ null_slope <- 1
 label_size <- 2.5
 
 plots <- lapply(plot_specs, function(s)
-  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size))
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, group = s$group))
 
 combined <- (plots[[1]] / plots[[2]] / plots[[3]]) 
 
@@ -572,7 +600,12 @@ y_breaks <- seq(0.2, 0.8, by = 0.2)
 label_size <- 3
 null_slope <- 1
 
-
+# NOTE: these 4 comparisons (O3/PM2.5 Knowledge vs Threat, Pre/Post) duplicate
+# tests already computed inside Figure S-5/S-6 below. No `group` is passed
+# here so they are NOT added to the Risk-vs-Knowledge multiple-comparisons
+# table (avoids double-counting the same test). If this plot should instead
+# be the authoritative one, pass group = "O3 Knowledge-Risk" / "PM2.5 Knowledge-Risk"
+# here and remove those two comparisons from Figure S-5/S-6 instead.
 p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge",    "O3 Threat",    "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p2 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge",    "O3 Threat",    "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
 p3 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, label_size = 2.5, null_slope=null_slope)
@@ -600,12 +633,12 @@ y_breaks <- seq(0.2, 0.8, by = 0.2)
 null_slope <- 0
 label_size <- 2.5
 
-p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p4 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p5 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p6 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
+p2 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
+p3 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
+p4 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
+p5 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
+p6 <- make_deming_panel(df_pre_post_scores, "O3 Knowledge", "O3 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "O3 Knowledge-Risk")
 
 final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
@@ -627,12 +660,12 @@ y_breaks <- seq(0.2, 1.0, by = 0.2)
 null_slope <- 0
 label_size <- 2.5
 
-p1 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p3 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p5 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
-p6 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope)
+p1 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
+p2 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
+p3 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Pre-Intervention",  xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
+p4 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Susceptibility", "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
+p5 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Severity",       "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
+p6 <- make_deming_panel(df_pre_post_scores, "PM2.5 Knowledge", "PM2.5 Threat",         "Post-Intervention", xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks,label_size = label_size, null_slope=null_slope, group = "PM2.5 Knowledge-Risk")
 
 final_plot <- (p2 | p5 ) / (p1 | p4) / (p3 | p6 ) +
   plot_layout(guides = "collect") &
@@ -656,12 +689,12 @@ library(ggplot2)
 library(patchwork)
 
 plot_specs <- list(
-  list(x = "O3 Knowledge",    y = "O3 Susceptibility"),
-  list(x = "O3 Knowledge",    y = "O3 Severity"),
-  list(x = "O3 Knowledge",    y = "O3 Threat"),
-  list(x = "PM2.5 Knowledge", y = "PM2.5 Susceptibility"),
-  list(x = "PM2.5 Knowledge", y = "PM2.5 Severity"),
-  list(x = "PM2.5 Knowledge", y = "PM2.5 Threat")
+  list(x = "O3 Knowledge",    y = "O3 Susceptibility",    group = "O3 Knowledge-Risk"),
+  list(x = "O3 Knowledge",    y = "O3 Severity",          group = "O3 Knowledge-Risk"),
+  list(x = "O3 Knowledge",    y = "O3 Threat",            group = "O3 Knowledge-Risk"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Susceptibility", group = "PM2.5 Knowledge-Risk"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Severity",       group = "PM2.5 Knowledge-Risk"),
+  list(x = "PM2.5 Knowledge", y = "PM2.5 Threat",         group = "PM2.5 Knowledge-Risk")
 )
 
 xlim     <- c(-1, 3)
@@ -672,7 +705,7 @@ null_slope <- 0
 label_size <- 2.5
 
 plots <- lapply(plot_specs, function(s)
-  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, title = s$y))
+  make_deming_panel_diff(df_diff, s$x, s$y, xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks, null_slope = null_slope, label_size = label_size, title = s$y, group = s$group))
 
 combined <- (plots[[2]] | plots[[5]]) / (plots[[1]] | plots[[6]]) /
             (plots[[3]] | plots[[6]]) 
@@ -686,12 +719,81 @@ ggsave(plot = final_plot, filename = "./Graphics/knowledge_threat_difference.jpe
        width = 5.5, height = 7, dpi = 300, units = "in", bg = "white")
 ```
 
+Multiple-comparison adjustment for the orthogonal Deming-regression comparisons above (Figures S-1 through S-7). Each `group` (set at the `make_deming_panel()`/`make_deming_panel_diff()` call sites) is adjusted separately, using the Holm-Bonferroni method. Three tables are produced, matching the three families of comparisons: the risk-construct comparison (Severity vs. Susceptibility, S-1/S-2), the pollutant comparison (O3 vs. PM2.5, S-3/S-4), and the risk-vs-knowledge comparison (S-5/S-6/S-7).
+
+```{r}
+
+# Build one adjusted-p-value table from deming_results, restricted to `groups`.
+# Adjustment (p.adjust) is computed independently within each group.
+build_deming_table <- function(results, groups, method = "holm") {
+  results |>
+    filter(group %in% groups) |>
+    mutate(null_hypothesis = paste0("slope = ", null_slope)) |>
+    group_by(group) |>
+    mutate(n_comparisons = n(),
+           p_value_adj = p.adjust(p_value, method = method)) |>
+    ungroup() |>
+    select(group, comparison, survey, slope, ci_low, ci_high,
+           null_hypothesis, p_value, n_comparisons, p_value_adj) |>
+    arrange(group, comparison, survey)
+}
+
+construct_table <- build_deming_table(deming_results, c("O3 Construct", "PM2.5 Construct")) |> 
+                   mutate(survey = factor(survey,levels = c('Pre-Intervention','Post-Intervention','Difference'),ordered=T)) |> 
+                   arrange(group, comparison, survey)
+
+construct_table$survey
 
 
-Fig 1 for Q25: Threat score by behavior change group 
+pollutant_table <- build_deming_table(deming_results, c("Pollutant Comparison")) |> 
+                   mutate(survey = factor(survey,levels = c('Pre-Intervention','Post-Intervention','Difference'),ordered=T)) |> 
+                   arrange(group, comparison, survey)
+
+knowledge_table <- build_deming_table(deming_results, c("O3 Knowledge-Risk", "PM2.5 Knowledge-Risk")) |> 
+                   mutate(survey = factor(survey,levels = c('Pre-Intervention','Post-Intervention','Difference'),ordered=T)) |> 
+                   arrange(group, comparison, survey)
+
+write_csv(construct_table, "deming_pvalues_construct_comparison.csv")
+write_csv(pollutant_table, "deming_pvalues_pollutant_comparison.csv")
+write_csv(knowledge_table, "deming_pvalues_knowledge_risk_comparison.csv")
+
+construct_table
+pollutant_table
+knowledge_table
+
+```
+
+## Index of Q25 / Q29 behavior-change plots
+
+Figs 1-9 use the same numbering and plot type for Q25 and Q29 - only the underlying question/metric differs. Q25 asks about behavior change due to outdoor air pollution; Q29 asks about home changes made to improve indoor air quality.
+
+```{r}
+# ============================================================================================
+# Fig  Metric      What it shows                                   Q25 file                             Q29 file
+# ---  ----------  -----------------------------------------------  -----------------------------------  -----------------------------------
+#  1   Threat      Score by behavior-change group, by survey        Q25_Fig1_threat_by_survey.jpeg        Q29_Fig1_threat_by_survey.tiff
+#  2   Threat      Score pre/post, lines connecting each HouseID     Q25_Fig2_threat_diff_lines.tiff       Q29_Fig2_threat_diff_lines.jpeg
+#  3   Threat      Score diff (post - pre) by group, signif test     Q25_Fig3_threat_diff_signif.tiff      Q29_Fig3_threat_diff_signif.jpeg
+#  4   Threat      Score diff, Wilcoxon-annotated (mean/V/p/CI)      Q25_Fig4_threat_diff_wilcox.tiff      Q29_Fig4_threat_diff_wilcox.tiff
+#  5   Knowledge   Score by behavior-change group, by survey         Q25_Fig5_knowledge_by_survey.jpeg     Q29_Fig5_knowledge_by_survey.jpeg
+#  6   Knowledge   Score pre/post, lines connecting each HouseID     Q25_Fig6_knowledge_diff_lines.tiff    Q29_Fig6_knowledge_diff_lines.tiff
+#  7   Knowledge   Score diff (post - pre) by group, signif test     Q25_Fig7_knowledge_diff_signif.tiff   Q29_Fig7_knowledge_diff_signif.jpeg
+#  8   Knowledge   Score diff, Wilcoxon-annotated (mean/V/p/CI)      Q25_Fig8_knowledge_diff_wilcox.tiff   Q29_Fig8_knowledge_diff_wilcox.tiff
+#  9   AQ ratio    Indoor/outdoor PM2.5 & O3 ratio by group          Q25_Fig9_IO_ratio.jpeg                Q29_Fig9_IO_ratio.jpeg
+# ============================================================================================
+#
+# Combined summary tables (Fig 4 and Fig 8 statistics, Q25 + Q29 together, Holm-adjusted p-values):
+#   Q25_Q29_Fig4_threat_diff_wilcox_combined.csv
+#   Q25_Q29_Fig8_knowledge_diff_wilcox_combined.csv
+```
+
+
+
+Fig 1 for Q25: Threat score by behavior change group
 Create a graph showing differences in threat perception by whether they make changes to their behavior
 
 ```{r}
+# Q25 - Fig 1: threat score by Q25 behavior-change group, faceted by survey (saves Q25_Fig1_threat_by_survey.jpeg)
 
 threat_behavior_score <- fa_df_imputed_scores%>%
   mutate(Survey = factor(Survey, levels = c("Pre_Intervention", "Post_Intervention"), labels = c("Pre-Intervention", "Post-Intervention"), ordered = TRUE)) |> 
@@ -726,7 +828,7 @@ ggplot(threat_behavior_score_Q25, aes(x = Q25, y = threat_score, color=Q25)) +
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -742,7 +844,7 @@ ggplot(threat_behavior_score_Q25, aes(x = Q25, y = threat_score, color=Q25)) +
     guides(color = "none") + 
   theme_bw()
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_behavior_plot.jpeg")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig1_threat_by_survey.jpeg")
 
 ```
 
@@ -752,6 +854,7 @@ Figure 2 for Q25
 Threat score by behavior change group, with lines connecting the same HouseID across surveys. (Figure 2 for Q25)
 
 ```{r}
+# Q25 - Fig 2: threat score pre/post with lines connecting each HouseID (saves Q25_Fig2_threat_diff_lines.tiff)
 
 ## Create a dataframe that has the post-intervention behavior responses for Q25, and merge that with the threat scores to get a dataframe that has the pre- and post- threat scores and the post-intervention responses for Q25.
 
@@ -806,7 +909,7 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
   theme_bw()+
   theme(legend.position ='bottom')
 
-  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig6_threat_diff_by_behavior_lines.tiff")
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig2_threat_diff_lines.tiff")
 
 
 ```
@@ -814,9 +917,10 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
 Figure 3 for Question 25
 
 ```{r}
+# Q25 - Fig 3: threat-score difference (post - pre) by Q25 behavior-change group, geom_signif wilcox p-value (saves Q25_Fig3_threat_diff_signif.tiff)
 library(ggrepel)
 
-threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
+threat_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |>
   select(HouseID, ac.type, Post_response_Q25, Survey, threat_score, knowledge_score) |>
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q25), names_from = Survey, values_from = threat_score) |> 
   mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
@@ -850,7 +954,7 @@ ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_diff
   geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.2f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -860,14 +964,15 @@ ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_diff
   theme_bw()
 
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_threat_by_behavior.tiff")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig3_threat_diff_signif.tiff")
 
 
 ```
 
-One-sample t-tests: is mean score_diff significantly different from zero, by Post_response_Q25 group?
+Figure 4 for Q25: one-sample Wilcoxon signed-rank test — is median threat-score difference significantly different from zero, by Post_response_Q25 group?
 
 ```{r}
+# Q25 - Fig 4: same as Fig 3 but annotated with one-sample Wilcoxon test (mean, V, p, 95% CI) (saves Q25_Fig4_threat_diff_wilcox.tiff)
 tdf <- threat_behavior_score_Q25_diff |>
   group_by(Post_response_Q25) |>
   summarise(
@@ -875,26 +980,28 @@ tdf <- threat_behavior_score_Q25_diff |>
     `Pre-Intervention` = mean(`Pre-Intervention`,na.rm=T),
     `Post-Intervention` = mean(`Post-Intervention`, na.rm=T),
     mean_diff = mean(score_diff, na.rm = TRUE),
-    t_result = list(t.test(score_diff, mu = 0)),
+    wilcox_result = list(wilcox.test(score_diff, mu = 0, conf.int = TRUE)),
     .groups = "drop"
   ) |>
   mutate(
-    t_statistic = map_dbl(t_result, ~ .x$statistic),
-    p_value     = map_dbl(t_result, ~ .x$p.value),
-    ci_lower    = map_dbl(t_result, ~ .x$conf.int[1]),
-    ci_upper    = map_dbl(t_result, ~ .x$conf.int[2])
+    V_statistic = map_dbl(wilcox_result, ~ .x$statistic),
+    pseudomedian = map_dbl(wilcox_result, ~ .x$estimate),
+    p_value     = map_dbl(wilcox_result, ~ .x$p.value),
+    ci_lower    = map_dbl(wilcox_result, ~ .x$conf.int[1]),
+    ci_upper    = map_dbl(wilcox_result, ~ .x$conf.int[2])
   ) |>
-  select(Post_response_Q25, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, t_statistic, p_value, ci_lower, ci_upper)
+  select(Post_response_Q25, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, V_statistic, pseudomedian, p_value, ci_lower, ci_upper)
 
 tdf
 
-write_csv(tdf,"./Processed Data/Q25_difference_ttest.csv")
+write_csv(tdf,"./Processed Data/Q25_Fig4_threat_diff_wilcox.csv")
 
 # label data for plot annotations
 tdf_labels <- tdf |>
   mutate(label = paste0("mean = ", round(mean_diff, 2),
-                        "\nt = ", round(t_statistic, 2),
-                        ", p = ", round(p_value, 2)))
+                        "\nV = ", round(V_statistic, 1),
+                        ", p = ", round(p_value, 2),
+                        "\n95% CI: [", round(ci_lower, 2), ", ", round(ci_upper, 2), "]"))
 
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
 
@@ -930,15 +1037,16 @@ ggplot(threat_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_diff
   expand_limits(y=0.1)
 
 
-ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_threat_by_behavior_ttest.tiff")
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig4_threat_diff_wilcox.tiff")
 
 
 
 ```
 
-Figure 4 for Q25. Knowledge difference by Q25 behavior change group
+Figure 5 for Q25. Knowledge difference by Q25 behavior change group
 
 ```{r}
+# Q25 - Fig 5: knowledge score by Q25 behavior-change group, faceted by survey (saves Q25_Fig5_knowledge_by_survey.jpeg)
 # overall knowledge
 
 names(threat_behavior_score_Q25)
@@ -953,7 +1061,7 @@ ggplot(threat_behavior_score_Q25, aes(x = Q25, y = knowledge_score, color=Q25)) 
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -970,14 +1078,15 @@ ggplot(threat_behavior_score_Q25, aes(x = Q25, y = knowledge_score, color=Q25)) 
   theme_bw()
 
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig5_knowledge_by_survey.jpeg")
 
 ```
 
 
-Figure 2 for Q25 for Knowledge (by Behavior change group in post-survey)
+Figure 6 for Q25 for Knowledge (by Behavior change group in post-survey)
 
 ```{r}
+# Q25 - Fig 6: knowledge score pre/post with lines connecting each HouseID (saves Q25_Fig6_knowledge_diff_lines.tiff)
 
 ## geom_point and geom_line
 ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
@@ -1015,16 +1124,17 @@ ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
   theme_bw()+
   theme(legend.position ='bottom')
 
-  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig7_knowledge_diff_by_behavior_lines.tiff")
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig6_knowledge_diff_lines.tiff")
 ```
 
 
-Figure 3 for Question 25 knowledge by behavior change in post-survey
+Figure 7 for Q25: knowledge by behavior change in post-survey
 
 ```{r}
+# Q25 - Fig 7: knowledge-score difference (post - pre) by Q25 behavior-change group, geom_signif wilcox p-value (saves Q25_Fig7_knowledge_diff_signif.tiff)
 library(ggrepel)
 
-knowledge_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |> 
+knowledge_behavior_score_Q25_diff <- threat_behavior_score_Q25_2 |>
   select(HouseID, ac.type, Post_response_Q25, Survey, threat_score, knowledge_score) |>
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q25), names_from = Survey, values_from = knowledge_score) |> 
   mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
@@ -1056,7 +1166,7 @@ ggplot(knowledge_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_d
   geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.2f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1066,14 +1176,15 @@ ggplot(knowledge_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_d
   theme_bw()
 
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior.tiff")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig7_knowledge_diff_signif.tiff")
 
 
 ```
 
-Figure 5 for Q25: Knowledge difference by Q25 behavior change group (in the post-suvey!)
+Figure 8 for Q25: Knowledge difference by Q25 behavior change group (in the post-suvey!)
 
 ```{r}
+# Q25 - Fig 8: knowledge-score diff by Q25 group, annotated with one-sample Wilcoxon test (mean, V, p, 95% CI) (saves Q25_Fig8_knowledge_diff_wilcox.tiff)
 
 tdf_knowledge <- knowledge_behavior_score_Q25_diff |>
   group_by(Post_response_Q25) |>
@@ -1082,26 +1193,28 @@ tdf_knowledge <- knowledge_behavior_score_Q25_diff |>
     `Pre-Intervention` = mean(`Pre-Intervention`,na.rm=T),
     `Post-Intervention` = mean(`Post-Intervention`, na.rm=T),
     mean_diff = mean(score_diff, na.rm = TRUE),
-    t_result = list(t.test(score_diff, mu = 0)),
+    wilcox_result = list(wilcox.test(score_diff, mu = 0, conf.int = TRUE)),
     .groups = "drop"
   ) |>
   mutate(
-    t_statistic = map_dbl(t_result, ~ .x$statistic),
-    p_value     = map_dbl(t_result, ~ .x$p.value),
-    ci_lower    = map_dbl(t_result, ~ .x$conf.int[1]),
-    ci_upper    = map_dbl(t_result, ~ .x$conf.int[2])
+    V_statistic = map_dbl(wilcox_result, ~ .x$statistic),
+    pseudomedian = map_dbl(wilcox_result, ~ .x$estimate),
+    p_value     = map_dbl(wilcox_result, ~ .x$p.value),
+    ci_lower    = map_dbl(wilcox_result, ~ .x$conf.int[1]),
+    ci_upper    = map_dbl(wilcox_result, ~ .x$conf.int[2])
   ) |>
-  select(Post_response_Q25, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, t_statistic, p_value, ci_lower, ci_upper)
+  select(Post_response_Q25, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, V_statistic, pseudomedian, p_value, ci_lower, ci_upper)
 
 tdf_knowledge
 
-write_csv(tdf_knowledge,"./Processed Data/Q25_knowledge_difference_ttest.csv")
+write_csv(tdf_knowledge,"./Processed Data/Q25_Fig8_knowledge_diff_wilcox.csv")
 
 # label data for plot annotations
 tdf_knowledge_labels <- tdf_knowledge |>
   mutate(label = paste0("mean = ", round(mean_diff, 2),
-                        "\nt = ", round(t_statistic, 2),
-                        ", p = ", round(p_value, 3)))
+                        "\nV = ", round(V_statistic, 1),
+                        ", p = ", round(p_value, 3),
+                        "\n95% CI: [", round(ci_lower, 2), ", ", round(ci_upper, 2), "]"))
 
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
 
@@ -1137,7 +1250,7 @@ ggplot(knowledge_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_d
   expand_limits(y=4)
 
 
-ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_ttest.tiff")
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig8_knowledge_diff_wilcox.tiff")
 
 
 ```
@@ -1145,11 +1258,12 @@ ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = 
 
 
 
-Figure 6 for Q25: Compare threat perception and air quality scores, broken out by ac.type
+Figure 9 for Q25: Compare threat perception and air quality scores, broken out by ac.type
 
 ```{r}
+# Q25 - Fig 9: indoor/outdoor PM2.5 & O3 ratio by Q25 behavior-change group, faceted by pollutant x ac.type (saves Q25_Fig9_IO_ratio.jpeg)
 
-threat_behavior_score_Q25_3 <- threat_behavior_score_Q25_2 |> 
+threat_behavior_score_Q25_3 <- threat_behavior_score_Q25_2 |>
   filter(Survey == "Post-Intervention") |> 
   select(HouseID, ac.type, Post_response_Q25, knowledge_score, mean_IO_PM_Summer, mean_IO_O3_Summer) |> 
   pivot_longer(cols = c(mean_IO_PM_Summer, mean_IO_O3_Summer), names_to = "Pollutant", values_to = "AQ_score") |> 
@@ -1166,7 +1280,7 @@ ggplot(threat_behavior_score_Q25_3, aes(x = Post_response_Q25, y = AQ_score, col
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1182,13 +1296,14 @@ ggplot(threat_behavior_score_Q25_3, aes(x = Post_response_Q25, y = AQ_score, col
   guides(color = "none") + 
   theme_bw()
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/IO_behavior_plot_Q25.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig9_IO_ratio.jpeg")
 
 ```
 
 Figure 1 for Q29
 
 ```{r}
+# Q29 - Fig 1: threat score by Q29 behavior-change group, faceted by survey (saves Q29_Fig1_threat_by_survey.tiff)
 
 threat_behavior_score_Q29 <- threat_behavior_score |>
   filter(!is.na(Q29))
@@ -1200,7 +1315,7 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = threat_score, color = Q29)) +
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1215,7 +1330,7 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = threat_score, color = Q29)) +
   guides(color = "none") + 
   theme_bw()
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig8_threat_behavior_plot_Q29.tiff")
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig1_threat_by_survey.tiff")
 
 ```
 
@@ -1225,10 +1340,11 @@ Figure 2 for Q29
 Threat score by behavior change group, with lines connecting the same HouseID across surveys.
 
 ```{r}
+# Q29 - Fig 2: threat score pre/post with lines connecting each HouseID (saves Q29_Fig2_threat_diff_lines.jpeg)
 
-threat_behavior_score_Q29 <- threat_behavior_score |> 
-  filter(!is.na(Q29)) |> 
-  select(HouseID, Survey, ac.type, Q29, sample, threat_score,knowledge_score, mean_IO_PM_Summer, mean_IO_O3_Summer) 
+threat_behavior_score_Q29 <- threat_behavior_score |>
+  filter(!is.na(Q29)) |>
+  select(HouseID, Survey, ac.type, Q29, sample, threat_score,knowledge_score, mean_IO_PM_Summer, mean_IO_O3_Summer)
 
 ## Create a dataframe that has the post-intervention behavior responses for Q29, and merge that with the threat scores to get a dataframe that has the pre- and post- threat scores and the post-intervention responses for Q29.
 
@@ -1273,7 +1389,7 @@ ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = threat_score)) +
  scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
   theme_bw()
 
-  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_diff_by_behavior_lines_Q29.jpeg")
+  ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig2_threat_diff_lines.jpeg")
 
 
 ```
@@ -1281,9 +1397,10 @@ ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = threat_score)) +
 Figure 3 for Question 29
 
 ```{r}
+# Q29 - Fig 3: threat-score difference (post - pre) by Q29 behavior-change group, geom_signif wilcox p-value (saves Q29_Fig3_threat_diff_signif.jpeg)
 library(ggrepel)
 
-threat_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |> 
+threat_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |>
   select(HouseID, ac.type, Post_response_Q29, Survey, threat_score) |>
   pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q29), names_from = Survey, values_from = threat_score) |> 
   mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
@@ -1315,7 +1432,7 @@ ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff
   geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.2f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1325,19 +1442,112 @@ ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff
   theme_bw()
 
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_threat_by_behavior_Q29.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig3_threat_diff_signif.jpeg")
 
+
+```
+
+Figure 4 for Q29: one-sample Wilcoxon signed-rank test — is median threat-score difference significantly different from zero, by Post_response_Q29 group?
+
+```{r}
+# Q29 - Fig 4: same as Fig 3 but annotated with one-sample Wilcoxon test (mean, V, p, 95% CI) (saves Q29_Fig4_threat_diff_wilcox.tiff)
+tdf_Q29 <- threat_behavior_score_Q29_diff |>
+  group_by(Post_response_Q29) |>
+  summarise(
+    n = n(),
+    `Pre-Intervention` = mean(`Pre-Intervention`,na.rm=T),
+    `Post-Intervention` = mean(`Post-Intervention`, na.rm=T),
+    mean_diff = mean(score_diff, na.rm = TRUE),
+    wilcox_result = list(wilcox.test(score_diff, mu = 0, conf.int = TRUE)),
+    .groups = "drop"
+  ) |>
+  mutate(
+    V_statistic = map_dbl(wilcox_result, ~ .x$statistic),
+    pseudomedian = map_dbl(wilcox_result, ~ .x$estimate),
+    p_value     = map_dbl(wilcox_result, ~ .x$p.value),
+    ci_lower    = map_dbl(wilcox_result, ~ .x$conf.int[1]),
+    ci_upper    = map_dbl(wilcox_result, ~ .x$conf.int[2])
+  ) |>
+  select(Post_response_Q29, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, V_statistic, pseudomedian, p_value, ci_lower, ci_upper)
+
+tdf_Q29
+
+write_csv(tdf_Q29,"./Processed Data/Q29_Fig4_threat_diff_wilcox.csv")
+
+# label data for plot annotations
+tdf_Q29_labels <- tdf_Q29 |>
+  mutate(label = paste0("mean = ", round(mean_diff, 2),
+                        "\nV = ", round(V_statistic, 1),
+                        ", p = ", round(p_value, 2),
+                        "\n95% CI: [", round(ci_lower, 2), ", ", round(ci_upper, 2), "]"))
+
+jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
+
+ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff, color = Post_response_Q29)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
+  geom_label_repel(
+    aes(label = HouseID),
+    position = jitter_pos,
+    size = 3,
+    min.segment.length = .6,
+    segment.color = "grey70",
+    color = "grey70",
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha = 0.7
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(
+    data = tdf_Q29_labels,
+    aes(x = Post_response_Q29, label = label),
+    y = Inf, vjust = 1.3,
+    size = 3, fontface = "italic", inherit.aes = FALSE  ) +
+  labs(
+    x = "Change in home to improve indoor air in post-intervention survey (Q29)",
+    y = "Difference in threat score (post - pre)",
+    color = "Behavior",
+    shape = "AC Type"
+  ) +
+  scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
+  guides(color = "none") +
+  theme_bw()+
+  expand_limits(y=0.1)
+
+
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig4_threat_diff_wilcox.tiff")
+
+
+```
+
+Combined table: one-sample Wilcoxon signed-rank tests for threat-score difference (post minus pre) by behavior-change response, for Q25 and Q29 together. Since these are 4 related comparisons (2 questions x 2 response groups), the p-values are adjusted for multiple comparisons using the Holm-Bonferroni method.
+
+```{r}
+# Q25 + Q29 - Fig 4 Table: combined one-sample Wilcoxon threat-diff tests, Holm-adjusted across the 4 comparisons (saves Q25_Q29_Fig4_threat_diff_wilcox_combined.csv)
+threat_diff_wilcox_combined <- bind_rows(
+  tdf |> rename(Response = Post_response_Q25) |> mutate(Question = "Q25", .before = 1),
+  tdf_Q29 |> rename(Response = Post_response_Q29) |> mutate(Question = "Q29", .before = 1)
+) |>
+  mutate(n_comparisons = n(),
+         p_value_adj = p.adjust(p_value, method = "holm")) |>
+  mutate(percent_change = mean_diff/`Pre-Intervention`) |> 
+  select(Question, Response, n, `Pre-Intervention`,`Post-Intervention`, mean_diff, percent_change, V_statistic, pseudomedian,
+         p_value, ci_lower, ci_upper, n_comparisons, p_value_adj) |>
+  arrange(Question, Response)
+
+threat_diff_wilcox_combined
+
+write_csv(threat_diff_wilcox_combined, "./Processed Data/Q25_Q29_Fig4_threat_diff_wilcox_combined.csv")
 
 ```
 
 
 
 
-
-
-Figure 4 for Q29
+Figure 5 for Q29
 
 ```{r}
+# Q29 - Fig 5: knowledge score by Q29 behavior-change group, faceted by survey (saves Q29_Fig5_knowledge_by_survey.jpeg)
 
 names(threat_behavior_score_Q29)
 
@@ -1349,7 +1559,7 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) 
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1366,15 +1576,68 @@ ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) 
   theme_bw()
 
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig5_knowledge_by_survey.jpeg")
+```
+
+Combined table: two-sample Wilcoxon rank-sum tests comparing the Change vs. No Change groups' knowledge score, separately for the Pre- and Post-Intervention surveys, for Q25 and Q29 together. Houses are grouped by their post-intervention response (Post_response_Q25 / Post_response_Q29) - the same fixed grouping used in Fig 2/3/4 - rather than each survey's own raw Q25/Q29 answer, so the Change/No Change group membership is identical for both the pre- and post-survey comparisons. Only houses with a knowledge score in both surveys are included (drops H29, which has pre-survey data only), giving the same n = 10/5 (Q25) and n = 4/11 (Q29) split for both comparisons. P-values are Holm-adjusted across the 4 comparisons; the Hodges-Lehmann location-shift confidence interval is only reported (non-NA) where that comparison is significant (adjusted p < 0.05) - none of the 4 are significant here, so all CI columns are NA.
+
+```{r}
+# Q25 + Q29 - Fig 5 Table: two-sample Wilcoxon tests (Change vs No Change, grouped by post-intervention response) on knowledge score, by survey, Holm-adjusted across the 4 comparisons; CI reported only when significant (saves Q25_Q29_Fig5_knowledge_by_survey_wilcox_combined.csv)
+
+run_fig5_wilcox <- function(df, group_col, survey_val, question, complete_ids) {
+  sub <- df |> filter(Survey == survey_val, HouseID %in% complete_ids)
+  group <- sub[[group_col]]
+  wt <- wilcox.test(sub$knowledge_score ~ group, conf.int = TRUE)
+  tibble(
+    Question = question,
+    Survey = survey_val,
+    n_change = sum(group == "Change"),
+    n_no_change = sum(group == "No Change"),
+    median_change = median(sub$knowledge_score[group == "Change"]),
+    median_no_change = median(sub$knowledge_score[group == "No Change"]),
+    W_statistic = unname(wt$statistic),
+    location_shift = unname(wt$estimate),
+    p_value = wt$p.value,
+    ci_lower_raw = wt$conf.int[1],
+    ci_upper_raw = wt$conf.int[2]
+  )
+}
+
+# same houses used in the Fig 3/4 (Q25) and Fig 3/4 (Q29) score-diff analyses -
+# i.e. houses with a knowledge score in both surveys
+q25_complete_ids <- threat_behavior_score_Q25_diff$HouseID
+q29_complete_ids <- threat_behavior_score_Q29_diff$HouseID
+
+knowledge_by_survey_wilcox_combined <- bind_rows(
+  run_fig5_wilcox(threat_behavior_score_Q25_2, "Post_response_Q25", "Pre-Intervention", "Q25", q25_complete_ids),
+  run_fig5_wilcox(threat_behavior_score_Q25_2, "Post_response_Q25", "Post-Intervention", "Q25", q25_complete_ids),
+  run_fig5_wilcox(threat_behavior_score_Q29_2, "Post_response_Q29", "Pre-Intervention", "Q29", q29_complete_ids),
+  run_fig5_wilcox(threat_behavior_score_Q29_2, "Post_response_Q29", "Post-Intervention", "Q29", q29_complete_ids)
+) |>
+  mutate(
+    n_comparisons = n(),
+    p_value_adj = p.adjust(p_value, method = "holm"),
+    significant = p_value_adj < 0.05,
+    ci_lower = if_else(significant, ci_lower_raw, NA_real_),
+    ci_upper = if_else(significant, ci_upper_raw, NA_real_)
+  ) |>
+  select(Question, Survey, n_change, n_no_change, median_change, median_no_change,
+         W_statistic, location_shift, p_value, p_value_adj, significant,
+         ci_lower, ci_upper, n_comparisons)
+
+knowledge_by_survey_wilcox_combined
+
+write_csv(knowledge_by_survey_wilcox_combined, "./Processed Data/Q25_Q29_Fig5_knowledge_by_survey_wilcox_combined.csv")
+
 ```
 
 
 
-Figure 2 for Q29 for knowledge
+Figure 6 for Q29 for knowledge
 knowledge score by behavior change group, with lines connecting the same HouseID across surveys.
 
 ```{r}
+# Q29 - Fig 6: knowledge score pre/post with lines connecting each HouseID (saves Q29_Fig6_knowledge_diff_lines.tiff)
 
 ## geom_point and geom_line
 ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
@@ -1402,35 +1665,36 @@ ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
  scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
   theme_bw()
 
-  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_diff_by_behavior_lines_Q29.tiff")
+  ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig6_knowledge_diff_lines.tiff")
 
 
 ```
 
 
-Figure 3 for Question 29 for knowledge
+Figure 7 for Q29: knowledge by behavior change in post-survey
 
 ```{r}
+# Q29 - Fig 7: knowledge-score difference (post - pre) by Q29 behavior-change group, geom_signif wilcox p-value (saves Q29_Fig7_knowledge_diff_signif.jpeg)
 library(ggrepel)
 
-threat_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |> 
+knowledge_diff_Q29_fig3 <- threat_behavior_score_Q29_2 |>
   select(HouseID, ac.type, Post_response_Q29, Survey, knowledge_score) |>
-  pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q29), names_from = Survey, values_from = knowledge_score) |> 
-  mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |> 
+  pivot_wider(id_cols = c(HouseID, ac.type, Post_response_Q29), names_from = Survey, values_from = knowledge_score) |>
+  mutate(score_diff = `Post-Intervention` - `Pre-Intervention`) |>
  filter(!is.na(score_diff))
 
 
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
 
-ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff, color = Post_response_Q29)) +
+ggplot(knowledge_diff_Q29_fig3, aes(x = Post_response_Q29, y = score_diff, color = Post_response_Q29)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(position = jitter_pos, aes(shape = ac.type)) +
   geom_label_repel(
     aes(label = HouseID),
     position = jitter_pos,
     size = 3,
-    min.segment.length = .6,  
-    segment.color = "grey70", 
+    min.segment.length = .6,
+    segment.color = "grey70",
     color = 'grey70',
     box.padding = 0.4,
     show.legend = FALSE,
@@ -1445,63 +1709,31 @@ ggplot(threat_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_diff
   geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.2f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
   ) +
   scale_color_manual(values = okabe_ito[7:8], name = "Behavior") +
-  guides(color = "none") +    
+  guides(color = "none") +
   theme_bw()+
   expand_limits(y=4.0)
 
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_Q29.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig7_knowledge_diff_signif.jpeg")
 
 
 ```
 
 
 
-Figure 4 for Q29 for Knowledge
+
+
+
+Figure 8 for Q29: Knowledge difference by Q29 behavior change group (in the post-suvey!)
 
 ```{r}
-
-names(threat_behavior_score_Q29)
-
-set.seed(123) # for reproducibility of jitter
-ggplot(threat_behavior_score_Q29, aes(x = Q29, y = knowledge_score, color=Q29)) +
-  geom_boxplot(data = threat_behavior_score_Q29 , outlier.shape = NA)+
-   geom_jitter(width=0.3,height=0, aes(shape = ac.type))+
-  facet_wrap(~Survey, labeller = labeller(Survey = c("Pre-Intervention"= "Pre-Intervention (n=14)", "Post-Intervention" = "Post-Intervention (n=15)"))) +
-    geom_signif(
-    comparisons = list(c('Change', 'No Change')),
-    map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
-    color = 'black',
-    vjust = 0,
-    margin_top = 0.1
-  ) +
-  labs(
-    x = "Change in Behavior due to Outdoor Air Quality (Q29)",
-    y = "Knowledge Score",
-    color = "Home Type",
-    shape = "AC Type"
-  ) +
-  #scale_color_grey()+
- scale_color_manual(values = okabe_ito[7:8], name = "House Type") +
-    guides(color = "none") + 
-  theme_bw()
-
-
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_behavior_plot_Q29.jpeg")
-```
-
-
-
-Figure 5 for Q29: Knowledge difference by Q29 behavior change group (in the post-suvey!)
-
-```{r}
+# Q29 - Fig 8: knowledge-score diff by Q29 group, annotated with one-sample Wilcoxon test (mean, V, p, 95% CI) (saves Q29_Fig8_knowledge_diff_wilcox.tiff)
 
 knowledge_behavior_score_Q29_diff <- threat_behavior_score_Q29_2 |> 
   select(HouseID, ac.type, Post_response_Q29, Survey, knowledge_score) |>
@@ -1517,26 +1749,28 @@ tdf_knowledge_Q29 <- knowledge_behavior_score_Q29_diff |>
     `Pre-Intervention` = mean(`Pre-Intervention`,na.rm=T),
     `Post-Intervention` = mean(`Post-Intervention`, na.rm=T),
     mean_diff = mean(score_diff, na.rm = TRUE),
-    t_result = list(t.test(score_diff, mu = 0)),
+    wilcox_result = list(wilcox.test(score_diff, mu = 0, conf.int = TRUE)),
     .groups = "drop"
   ) |>
   mutate(
-    t_statistic = map_dbl(t_result, ~ .x$statistic),
-    p_value     = map_dbl(t_result, ~ .x$p.value),
-    ci_lower    = map_dbl(t_result, ~ .x$conf.int[1]),
-    ci_upper    = map_dbl(t_result, ~ .x$conf.int[2])
+    V_statistic = map_dbl(wilcox_result, ~ .x$statistic),
+    pseudomedian = map_dbl(wilcox_result, ~ .x$estimate),
+    p_value     = map_dbl(wilcox_result, ~ .x$p.value),
+    ci_lower    = map_dbl(wilcox_result, ~ .x$conf.int[1]),
+    ci_upper    = map_dbl(wilcox_result, ~ .x$conf.int[2])
   ) |>
-  select(Post_response_Q29, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, t_statistic, p_value, ci_lower, ci_upper)
+  select(Post_response_Q29, n, `Pre-Intervention`,`Post-Intervention`,mean_diff, V_statistic, pseudomedian, p_value, ci_lower, ci_upper)
 
 tdf_knowledge_Q29
 
-write_csv(tdf_knowledge_Q29,"./Processed Data/Q29_knowledge_difference_ttest.csv")
+write_csv(tdf_knowledge_Q29,"./Processed Data/Q29_Fig8_knowledge_diff_wilcox.csv")
 
 # label data for plot annotations
 tdf_knowledge_Q29_labels <- tdf_knowledge_Q29 |>
   mutate(label = paste0("mean = ", round(mean_diff, 2),
-                        "\nt = ", round(t_statistic, 2),
-                        ", p = ", round(p_value, 3)))
+                        "\nV = ", round(V_statistic, 1),
+                        ", p = ", round(p_value, 3),
+                        "\n95% CI: [", round(ci_lower, 2), ", ", round(ci_upper, 2), "]"))
 
 jitter_pos <- position_jitter(width = 0.3, height = 0, seed = 42)
 
@@ -1572,18 +1806,40 @@ ggplot(knowledge_behavior_score_Q29_diff, aes(x = Post_response_Q29, y = score_d
   expand_limits(y=4)
 
 
-ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/diff_knowledge_by_behavior_ttest_Q29.tiff")
+ggsave(width = 6, height = 4, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig8_knowledge_diff_wilcox.tiff")
 
+
+```
+
+Combined table: one-sample Wilcoxon signed-rank tests for knowledge-score difference (post minus pre) by behavior-change response, for Q25 and Q29 together. Since these are 4 related comparisons (2 questions x 2 response groups), the p-values are adjusted for multiple comparisons using the Holm-Bonferroni method.
+
+```{r}
+# Q25 + Q29 - Fig 8 Table: combined one-sample Wilcoxon knowledge-diff tests, Holm-adjusted across the 4 comparisons (saves Q25_Q29_Fig8_knowledge_diff_wilcox_combined.csv)
+knowledge_diff_wilcox_combined <- bind_rows(
+  tdf_knowledge |> rename(Response = Post_response_Q25) |> mutate(Question = "Q25", .before = 1),
+  tdf_knowledge_Q29 |> rename(Response = Post_response_Q29) |> mutate(Question = "Q29", .before = 1)
+) |>
+  mutate(n_comparisons = n(),
+         p_value_adj = p.adjust(p_value, method = "holm")) |>
+  mutate(percent_change = mean_diff/`Pre-Intervention`) |> 
+  select(Question, Response, n, `Pre-Intervention`,`Post-Intervention`, mean_diff, percent_change, V_statistic, pseudomedian,
+         p_value, ci_lower, ci_upper, n_comparisons, p_value_adj) |>
+  arrange(Question, Response)
+
+knowledge_diff_wilcox_combined
+
+write_csv(knowledge_diff_wilcox_combined, "./Processed Data/Q25_Q29_Fig8_knowledge_diff_wilcox_combined.csv")
 
 ```
 
 
 
-Figure 5 for Q29: Compare threat perception and air quality scores, broken out by ac.type
+Figure 9 for Q29: Compare threat perception and air quality scores, broken out by ac.type
 
 ```{r}
+# Q29 - Fig 9: indoor/outdoor PM2.5 & O3 ratio by Q29 behavior-change group, faceted by pollutant x ac.type (saves Q29_Fig9_IO_ratio.jpeg)
 
-threat_behavior_score_Q29_3 <- threat_behavior_score_Q29_2 |> 
+threat_behavior_score_Q29_3 <- threat_behavior_score_Q29_2 |>
   filter(Survey == "Post-Intervention") |> 
   select(HouseID, ac.type, Post_response_Q29, knowledge_score, mean_IO_PM_Summer, mean_IO_O3_Summer) |> 
   pivot_longer(cols = c(mean_IO_PM_Summer, mean_IO_O3_Summer), names_to = "Pollutant", values_to = "AQ_score") |> 
@@ -1597,7 +1853,7 @@ ggplot(threat_behavior_score_Q29_3, aes(x = Post_response_Q29, y = AQ_score, col
     geom_signif(
     comparisons = list(c('Change', 'No Change')),
     map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 't.test',
+    test = 'wilcox.test',
     color = 'black',
     vjust = 0,
     margin_top = 0.1
@@ -1613,7 +1869,80 @@ ggplot(threat_behavior_score_Q29_3, aes(x = Post_response_Q29, y = AQ_score, col
   guides(color = "none") + 
   theme_bw()
 
-ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/IO_behavior_plot_Q29.jpeg")
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig9_IO_ratio.jpeg")
+
+```
+
+Combined panel: Fig 2 and Fig 6 (pre/post lines by HouseID, threat and knowledge) for Q25 and Q29 together, Q25 on top and Q29 on bottom.
+
+```{r}
+# Q25 + Q29 - Combined Fig 2 + Fig 6 panel: pre/post lines by HouseID, threat (left) and knowledge (right), Q25 (top) vs Q29 (bottom) (saves Q25_Q29_Fig2_Fig6_combined.jpeg)
+
+survey_labels <- c("Pre-Intervention" = "Pre", "Post-Intervention" = "Post")
+change_labels <- c("Change" = "Change", "No Change" = "No Change")
+
+tight_theme <- theme_bw(base_size = 6) +
+  theme(
+    legend.position = "bottom",
+    legend.key.size = unit(0.25, "cm"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 8),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.spacing = unit(0.05, "cm"),
+    strip.text = element_text(size =7, margin = margin(1, 1, 1, 1)),
+    plot.title = element_text(size = 9, face = "bold"),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 7)
+  )
+
+# use one shared Behavior color scale (Q25's palette) across all 4 panels, so patchwork can
+# collect a single shared legend instead of repeating it once per question
+shared_color_scale <- scale_color_manual(values = okabe_ito[5:6], name = "Behavior")
+
+p_q25_fig2 <- ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q25))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q25, labeller = labeller(Post_response_Q25 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = NULL, y = "Threat score", color = "Behavior", shape = "AC Type", title = "Q25 - Behavior & Threat") +
+  shared_color_scale +
+  tight_theme
+
+p_q25_fig6 <- ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q25))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q25, labeller = labeller(Post_response_Q25 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = NULL, y = "Knowledge score", color = "Behavior", shape = "AC Type", title = "Q25 - Behavior & Knowledge") +
+  shared_color_scale +
+  tight_theme
+
+p_q29_fig2 <- ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = threat_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q29))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q29, labeller = labeller(Post_response_Q29 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = "Survey", y = "Threat score", color = "Behavior", shape = "AC Type", title = "Q29 - Home Intervention & Threat") +
+  shared_color_scale +
+  tight_theme
+
+p_q29_fig6 <- ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q29))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q29, labeller = labeller(Post_response_Q29 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = "Survey", y = "Knowledge score", color = "Behavior", shape = "AC Type", title = "Q29 - Home Intervention & Knowledge") +
+  shared_color_scale +
+  tight_theme
+
+fig2_fig6_combined <- (p_q25_fig2 | p_q25_fig6) / (p_q29_fig2 | p_q29_fig6) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom", legend.box = "horizontal",
+        legend.margin = margin(0, 0, 0, 0), legend.box.spacing = unit(0.05, "cm"))
+
+fig2_fig6_combined
+
+ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Q29_Fig2_Fig6_combined.jpeg")
 
 
 
