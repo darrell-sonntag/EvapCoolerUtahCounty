@@ -42,17 +42,6 @@ suspm_qs <- groups %>% filter(Construct == "Perceived Susceptibility (PM2.5)") %
   pull(QuestionIDs)
 ```
 
-General Score:
-```{r}
-test1_df <- fa_df_imputed %>% 
-  mutate(total_score =  rowSums(across(Q09:Q22))) %>%
-  select(HouseID, Survey, total_score) %>%
-  pivot_wider(id_cols = HouseID, names_from = Survey, values_from = total_score) %>%
-  mutate(difference = Post_Intervention - Pre_Intervention)
-
-differences <- test1_df$difference
-```
-
 This next function takes get_score_analysis and changes it to be able to run the wilcoxon test, and also adding adjusted P-values and unadjusted p-values. Also using Holme Testing
 ```{r}
 wilcoxon_score_analysis <- function(qs, construct_name) {
@@ -442,8 +431,8 @@ spearman_stats <- threat_diff_by_pollutant_order %>%
 
 spearman_label <- spearman_stats %>%
   mutate(label = paste0(
-    "rho = ", round(rho, 2),
-    " (95% CI: ", round(ci_lower, 2), ", ", round(ci_upper, 2), ")\n",
+    "Spearman's rho = ", round(rho, 2),
+    " (95% CI: ", round(ci_lower, 2), ", ", round(ci_upper, 2), "), ",
     "p = ", round(p_val, 3)
   ))
 
