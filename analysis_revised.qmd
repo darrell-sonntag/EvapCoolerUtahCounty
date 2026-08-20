@@ -475,3 +475,54 @@ IO_vs_diff_threat_order_plt
 ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
        filename = "./Graphics/IO_vs_diff_threat_order.tiff")
 ```
+
+The above was run with KNN imputations, and now we need to take a look at the data and the results without those imputations.
+```{r}
+# overwrite the data to the original dataset before KNN imputation
+fa_df_imputed <- fa_df
+
+results_no_impute <- lapply(names(construct_qs), function(con) {
+  wilcoxon_score_analysis(construct_qs[[con]], con)
+})
+
+raw_p_ni <- sapply(results_no_impute, function(x) x$p_value)
+
+pollutant_ni <- case_when(
+  str_detect(sapply(results_no_impute, function(x) x$Construct), "O3") ~ "O3",
+  str_detect(sapply(results_no_impute, function(x) x$Construct), "PM2.5") ~ "PM2.5",
+  TRUE ~ NA_character_
+)
+adj_p_ni <- ave(raw_p_ni, pollutant_ni, FUN = function(p) p.adjust(p, method = "holm"))
+
+summary_table_no_impute <- bind_rows(lapply(seq_along(results_no_impute), function(i) {
+  x <- results_no_impute[[i]]
+  data.frame(
+    Construct = x$Construct,
+    N = x$n,
+    `Pre Survey Score` = round(x$pre_score, 2),
+    `Post Survey Score` = round(x$post_score, 2),
+    `Median Difference` = round(x$median_diff, 2),
+    `Hodges-Lehmann Estimate` = round(x$estimate, 2),
+    `Z-stat` = round(x$z_stat, 2),
+    `P-value` = round(raw_p_ni[i], 3),
+    `Adj. P-value` = round(adj_p_ni[i], 3),
+    `95% CI` = paste0("(", round(x$ci[1], 2), ", ", round(x$ci[2], 2), ")"),
+    Pollutant = pollutant_ni[i],
+    check.names = FALSE
+  )
+})) %>%
+  arrange(Pollutant, Construct)
+
+group_index_ni <- rle(summary_table_no_impute$Pollutant)
+group_index_ni <- setNames(group_index_ni$lengths, group_index_ni$values)
+
+tbl_grouped_no_impute <- summary_table_no_impute %>%
+  select(-Pollutant) %>%
+  kable(row.names = FALSE,
+        booktabs = TRUE,
+        caption = "Wilcoxon Signed-Rank Tests by Pollutant and Construct (No KNN Imputation)") %>%
+  kable_styling(latex_options = "hold_position", font_size = 9, full_width = FALSE) %>%
+  pack_rows(index = group_index_ni)
+
+tbl_grouped_no_impute
+```
