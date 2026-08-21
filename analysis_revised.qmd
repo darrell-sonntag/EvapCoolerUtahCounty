@@ -86,8 +86,8 @@ wilcoxon_score_analysis <- function(qs, construct_name) {
     Construct = construct_name,
     data = test2_df,
     n = sum(!is.na(test2_df$difference)),
-    pre_score = mean(test2_df$Pre_Intervention),
-    post_score = mean(test2_df$Post_Intervention),
+    pre_score = mean(test2_df$Pre_Intervention, na.rm = TRUE),
+    post_score = mean(test2_df$Post_Intervention, na.rm = TRUE),
     z_stat = coin::statistic(test),
     p_value = coin::pvalue(test),
     median_diff = median(test2_df$difference, na.rm = TRUE),
@@ -476,9 +476,11 @@ ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
        filename = "./Graphics/IO_vs_diff_threat_order.tiff")
 ```
 
-The above was run with KNN imputations, and now we need to take a look at the data and the results without those imputations.
+The above was run with KNN imputations, and now we need to take a look at the data and the results without those houses 6 and 11.
+
+Without houses and KNN imputation for the supplementary document:
 ```{r}
-# overwrite the data to the original dataset before KNN imputation
+# Overwrite the fa_df_imputed so that it doesn't do the KNN imputation
 fa_df_imputed <- fa_df
 
 results_no_impute <- lapply(names(construct_qs), function(con) {
@@ -513,6 +515,8 @@ summary_table_no_impute <- bind_rows(lapply(seq_along(results_no_impute), functi
 })) %>%
   arrange(Pollutant, Construct)
 
+write_csv(summary_table_no_impute |> select(-Pollutant),'./Processed Data/wilcox_diff_risk_noKNN_constructs.csv')
+
 group_index_ni <- rle(summary_table_no_impute$Pollutant)
 group_index_ni <- setNames(group_index_ni$lengths, group_index_ni$values)
 
@@ -525,4 +529,91 @@ tbl_grouped_no_impute <- summary_table_no_impute %>%
   pack_rows(index = group_index_ni)
 
 tbl_grouped_no_impute
+```
+
+```{r}
+get_construct_diff_ni <- function(construct_name) {
+  results_no_impute[[which(sapply(results_no_impute, `[[`, "Construct") == construct_name)]]$data %>%
+    select(HouseID, score = difference)
+}
+
+threat_diff_by_pollutant_ni <- bind_rows(
+  get_construct_diff_ni("Perceived Threat (O3)") %>% mutate(pollutant = "O3"),
+  get_construct_diff_ni("Perceived Threat (PM2.5)") %>% mutate(pollutant = "PM2.5")
+) %>%
+  left_join(metadata, by = "HouseID") %>%
+  mutate(IO_ratio = if_else(pollutant == "O3", mean_IO_O3_Summer, mean_IO_PM_Summer)) %>%
+  select(HouseID, ac.type, pollutant, score, IO_ratio)
+
+threat_diff_by_pollutant_order_ni <- threat_diff_by_pollutant_ni %>%
+  filter(!is.na(score)) %>%
+  group_by(pollutant) %>%
+  mutate(IO_order = dense_rank(IO_ratio)) %>%
+  ungroup()
+
+spearman_stats_ni <- threat_diff_by_pollutant_order_ni %>%
+  filter(!is.na(IO_ratio)) %>%
+  group_split(pollutant) %>%
+  map_dfr(function(d) {
+    ct <- cor.test(d$score, d$IO_ratio, method = "spearman", exact = FALSE)
+    boot_fn <- function(data, indices) {
+      cor(data$score[indices], data$IO_ratio[indices], method = "spearman")
+    }
+    set.seed(3)
+    b <- boot::boot(d, boot_fn, R = 2000)
+    ci <- boot::boot.ci(b, type = "perc")$percent[4:5]
+    tibble(
+      pollutant = unique(d$pollutant),
+      rho = unname(ct$estimate),
+      p_val = ct$p.value,
+      ci_lower = ci[1],
+      ci_upper = ci[2]
+    )
+  })
+
+spearman_label_ni <- spearman_stats_ni %>%
+  mutate(label = paste0(
+    "Spearman's rho = ", round(rho, 2),
+    " (95% CI: ", round(ci_lower, 2), ", ", round(ci_upper, 2), "), ",
+    "p = ", round(p_val, 3)
+  ))
+
+set.seed(3)
+IO_vs_diff_threat_order_plt_ni <- ggplot(threat_diff_by_pollutant_order_ni, aes(y = score, x = IO_order)) +
+  geom_point(aes(shape = ac.type, color = ac.type)) +
+  facet_grid(. ~ pollutant, scales = "free_y") +
+  geom_text(data = spearman_label_ni, aes(label = label),
+            x = Inf, y = Inf, hjust = 1.05, vjust = 1.5,
+            size = 3, fontface = "italic", inherit.aes = FALSE) +
+  geom_label_repel(
+    data = threat_diff_by_pollutant_order_ni %>%
+      filter(HouseID %in% c('H02', 'H05')),
+    aes(label = HouseID),
+    size = 3,
+    nudge_x = -1,
+    min.segment.length = .2,
+    segment.color = "grey70",
+    color = 'grey70',
+    box.padding = 0.4,
+    show.legend = FALSE,
+    alpha = 0.7,
+    seed = 5
+  ) +
+  labs(
+    y = "Difference in Threat (post - pre)",
+    x = "Rank in Indoor/Outdoor Ratio",
+    color = "Home Type",
+    shape = "Home Type"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  expand_limits(y = 0.11) +
+  scale_x_continuous(limits = c(0, 16), breaks = seq(0, 16, by = 4)) +
+  scale_color_manual(values = okabe_ito, name = "House Type") +
+  scale_shape_manual(values = c(16, 17), name = "House Type")
+
+IO_vs_diff_threat_order_plt_ni
+
+ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
+       filename = "./Graphics/IO_vs_diff_threat_order_no_impute.tiff")
 ```
