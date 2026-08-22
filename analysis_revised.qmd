@@ -476,6 +476,82 @@ ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
        filename = "./Graphics/IO_vs_diff_threat_order.tiff")
 ```
 
+This chunk creates a similar table to the ones above, however in this case it also includes the House Types as a categorical variable:
+```{r}
+fa_df_imputed_full <- fa_df_imputed
+
+house_types <- metadata %>% filter(!is.na(ac.type)) %>% distinct(ac.type) %>% pull(ac.type)
+
+results_by_house_type <- list()
+
+for (type in house_types) {
+  type_houses <- metadata %>% filter(ac.type == type) %>% pull(HouseID)
+
+  # Reassigning fa_df_imputed here (top-level, inside the for loop body) is
+  # what wilcoxon_score_analysis() actually reads on each call below
+  fa_df_imputed <- fa_df_imputed_full %>% filter(HouseID %in% type_houses)
+
+  type_results <- lapply(names(construct_qs), function(con) {
+    res <- wilcoxon_score_analysis(construct_qs[[con]], con)
+    res$HouseType <- type
+    res
+  })
+
+  results_by_house_type <- c(results_by_house_type, type_results)
+}
+
+fa_df_imputed <- fa_df_imputed_full  # restore full imputed set afterward
+
+raw_p_at <- sapply(results_by_house_type, function(x) x$p_value)
+
+pollutant_at <- case_when(
+  str_detect(sapply(results_by_house_type, function(x) x$Construct), "O3") ~ "O3",
+  str_detect(sapply(results_by_house_type, function(x) x$Construct), "PM2.5") ~ "PM2.5",
+  TRUE ~ NA_character_
+)
+housetype_at <- sapply(results_by_house_type, function(x) x$HouseType)
+
+# Holm correction within each House Type x Pollutant group (3 tests each),
+# extending the pollutant-only grouping convention used for the main table
+adj_group_at <- paste(housetype_at, pollutant_at)
+adj_p_at <- ave(raw_p_at, adj_group_at, FUN = function(p) p.adjust(p, method = "holm"))
+
+summary_table_by_actype <- bind_rows(lapply(seq_along(results_by_house_type), function(i) {
+  x <- results_by_house_type[[i]]
+  data.frame(
+    `House Type` = x$HouseType,
+    Construct = x$Construct,
+    N = x$n,
+    `Pre Survey Score` = round(x$pre_score, 2),
+    `Post Survey Score` = round(x$post_score, 2),
+    `Median Difference` = round(x$median_diff, 2),
+    `Hodges-Lehmann Estimate` = round(x$estimate, 2),
+    `Z-stat` = round(x$z_stat, 2),
+    `P-value` = round(raw_p_at[i], 3),
+    `Adj. P-value` = round(adj_p_at[i], 3),
+    `95% CI` = paste0("(", round(x$ci[1], 2), ", ", round(x$ci[2], 2), ")"),
+    Pollutant = pollutant_at[i],
+    check.names = FALSE
+  )
+})) %>%
+  arrange(`House Type`, Pollutant, Construct)
+
+write_csv(summary_table_by_actype |> select(-Pollutant), './Processed Data/wilcox_diff_risk_constructs_by_actype.csv')
+
+group_index_at <- rle(summary_table_by_actype$`House Type`)
+group_index_at <- setNames(group_index_at$lengths, group_index_at$values)
+
+tbl_grouped_by_actype <- summary_table_by_actype %>%
+  select(-Pollutant) %>%
+  kable(row.names = FALSE,
+        booktabs = TRUE,
+        caption = "Wilcoxon Signed-Rank Tests by House Type, Pollutant, and Construct") %>%
+  kable_styling(latex_options = "hold_position", font_size = 9, full_width = FALSE) %>%
+  pack_rows(index = group_index_at)
+
+tbl_grouped_by_actype
+```
+
 The above was run with KNN imputations, and now we need to take a look at the data and the results without those houses 6 and 11.
 
 Without houses and KNN imputation for the supplementary document:
