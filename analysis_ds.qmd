@@ -1975,13 +1975,15 @@ pm_threat_labels <- df_pre_post_threat_wide |>
   group_by(ac.type, Survey) |>
   summarise(
     slope = summary(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))$coefficients[2,1],
+    ci_low = confint(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))[2,1],
+    ci_high = confint(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))[2,2],
     r_sq = summary(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))$r.squared,
     p_val = summary(lm(`PM2.5 Threat`~ mean_IO_PM_Summer))$coefficients[2, 4],
     .groups = "drop"
   ) |>
   mutate(label = if_else(p_val < 0.01,
-                         sprintf("slope = %.2f, p < 0.01, R² = %.2f,", slope, r_sq),
-                         sprintf("slope = %.2f, p = %.2f, R² = %.2f,", slope, p_val, r_sq)))
+                         sprintf("slope = %.2f [%.2f, %.2f], p < 0.01, R² = %.2f,", slope, ci_low, ci_high, r_sq),
+                         sprintf("slope = %.2f [%.2f, %.2f], p = %.2f, R² = %.2f,", slope, ci_low, ci_high, p_val, r_sq)))
 
 
 ggplot(df_pre_post_threat_wide, aes(y = `PM2.5 Threat`, x = mean_IO_PM_Summer)) +
@@ -2021,13 +2023,15 @@ pm_threat_labels <- df_pre_post_threat_wide |>
   group_by(Survey) |>
   summarise(
     slope = summary(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))$coefficients[2,1],
+    ci_low = confint(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))[2,1],
+    ci_high = confint(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))[2,2],
     r_sq = summary(lm(`PM2.5 Threat` ~ mean_IO_PM_Summer))$r.squared,
     p_val = summary(lm(`PM2.5 Threat`~ mean_IO_PM_Summer))$coefficients[2, 4],
     .groups = "drop"
   ) |>
   mutate(label = if_else(p_val < 0.01,
-                         sprintf("slope = %.2f, p < 0.01, R² = %.2f,", slope, r_sq),
-                         sprintf("slope = %.2f, p = %.2f, R² = %.2f,", slope, p_val, r_sq)))
+                         sprintf("slope = %.2f [%.2f, %.2f], p < 0.01, R² = %.2f,", slope, ci_low, ci_high, r_sq),
+                         sprintf("slope = %.2f [%.2f, %.2f], p = %.2f, R² = %.2f,", slope, ci_low, ci_high, p_val, r_sq)))
 
 
 ggplot(df_pre_post_threat_wide, aes(y = `PM2.5 Threat`, x = mean_IO_PM_Summer)) +
@@ -2066,13 +2070,15 @@ o3_threat_labels <- df_pre_post_threat_wide |>
   group_by(Survey) |>
   summarise(
     slope = summary(lm(`O3 Threat` ~ mean_IO_O3_Summer))$coefficients[2,1],
+    ci_low = confint(lm(`O3 Threat` ~ mean_IO_O3_Summer))[2,1],
+    ci_high = confint(lm(`O3 Threat` ~ mean_IO_O3_Summer))[2,2],
     r_sq = summary(lm(`O3 Threat` ~ mean_IO_O3_Summer))$r.squared,
     p_val = summary(lm(`O3 Threat` ~ mean_IO_O3_Summer))$coefficients[2, 4],
     .groups = "drop"
   ) |>
   mutate(label = if_else(p_val < 0.01,
-                         sprintf("slope = %.2f, p < 0.01, R² = %.2f,", slope, r_sq),
-                         sprintf("slope = %.2f, p = %.2f, R² = %.2f,", slope, p_val, r_sq)))
+                         sprintf("slope = %.2f [%.2f, %.2f], p < 0.01, R² = %.2f,", slope, ci_low, ci_high, r_sq),
+                         sprintf("slope = %.2f [%.2f, %.2f], p = %.2f, R² = %.2f,", slope, ci_low, ci_high, p_val, r_sq)))
 
 ggplot(df_pre_post_threat_wide, aes(y = `O3 Threat`, x = mean_IO_O3_Summer)) +
    geom_point(aes(shape = ac.type, color = ac.type))+
@@ -2131,13 +2137,15 @@ threat_labels <- diff_by_pollutant_2 |>
   group_by(pollutant) |>
   summarise(
     slope = summary(lm(`score` ~ IO_ratio))$coefficients[2,1],
+    ci_low = confint(lm(`score` ~ IO_ratio))[2,1],
+    ci_high = confint(lm(`score` ~ IO_ratio))[2,2],
     r_sq = summary(lm(`score` ~ IO_ratio))$r.squared,
     p_val = summary(lm(`score`~ IO_ratio))$coefficients[2, 4],
     .groups = "drop"
   ) |>
   mutate(label = if_else(p_val < 0.01,
-                         sprintf("slope = %.2f, p < 0.01, R² = %.2f,", slope, r_sq),
-                         sprintf("slope = %.2f, p = %.2f, R² = %.2f,", slope, p_val, r_sq)))
+                         sprintf("slope = %.2f [%.2f, %.2f], p < 0.01, R² = %.2f,", slope, ci_low, ci_high, r_sq),
+                         sprintf("slope = %.2f [%.2f, %.2f], p = %.2f, R² = %.2f,", slope, ci_low, ci_high, p_val, r_sq)))
 
 set.seed(2)
 ggplot(diff_by_pollutant_2, aes(y = `score`, x = IO_ratio)) +
@@ -2149,7 +2157,7 @@ ggplot(diff_by_pollutant_2, aes(y = `score`, x = IO_ratio)) +
             size = 3, fontface = "italic", inherit.aes = FALSE) +
   geom_label_repel(
     data = diff_by_pollutant_2 |>
-      filter(HouseID %in% c('H02','H05','H09','H13','H24')),
+      filter(HouseID %in% c('H02','H05','H09','H24')),
     aes(label = HouseID),
     size = 3,
     min.segment.length = .6,

@@ -18,7 +18,7 @@ images should be jpegs (9pt arial font for figure labels)
 
 ## Methods:
 
-The analysis focuses on differences in pre and post intervention survey responses related to pollutant risk perception. We first found that among the 15 subjects who completed both surveys, 2 surveys had a small number (6) of non-responses. We impute these responses using KNN imputation from the VIM package in R. Next, we conducted a confirmatory factor analysis in SAS on questionnaire responses with perceived susceptibility and perceived sustainability as latent factors. Results didn't produce a good enough fit to confirm these as underlying factors related to the answering of the survey questions. Next, we perform two-sided t-tests on overall risk score differences and risk score differences broken down by risk perception constructs (as defined by survey designers). Due to differing maximum risk scores for each construct, we standardize risk scores by dividing by the total possible risk score for each construct. We also perform two-sided t-tests on overall pollutant knowledge score differences. Finally, we explore the relationship between the actual pollutant level in an individual's home and their perceived risk. We do this by fitting linear models with perceived risk score difference as the response and pollutant level as the covariate. We also perform ranked spearman correlation tests on these same variables to explore ranked correlation.
+The analysis focuses on differences in pre and post intervention survey responses related to pollutant risk perception. We first found that among the 15 subjects who completed both surveys, 2 pre-intervention surveys (House 06 and House 33) had a small number of item non-responses (3 of the 420 item-responses across the 14 questionnaire items used in the factor analysis, or 0.7%). We impute these missing responses using k-nearest neighbor (kNN) imputation, as implemented by the `kNN()` function in the VIM package (v7.0.0) in R, using the function's default settings: k = 5 neighbors, with imputation and distance calculation performed jointly across all 14 questionnaire items (Q09–Q22) and both survey administrations (pre- and post-intervention; n = 30 house-survey observations). For each missing item, the imputed value is the median response among the 5 nearest neighbors. Neighbor distance is computed using VIM's internal Gower-based distance metric, which range-standardizes (min-max scales) each item before computing distances so that items are weighted equally regardless of their raw response scale; no additional manual scaling was applied. Because only 3 of 420 item-responses were missing, and these belonged only to the Perceived Severity (PM2.5) and Perceived Susceptibility (PM2.5) constructs, we assessed the sensitivity of our results to this imputation choice by repeating the pre/post score comparison under two alternative approaches: (1) complete-case analysis, excluding the two affected house-survey pairs, and (2) an available-item approach, prorating each respondent's score from their non-missing items. Results were consistent in direction, magnitude, and statistical significance across all three approaches (see Sensitivity to Imputation Method below), indicating that our conclusions are not sensitive to the choice of missing-data method. Next, we conducted a confirmatory factor analysis in SAS on questionnaire responses with perceived susceptibility and perceived sustainability as latent factors. Results didn't produce a good enough fit to confirm these as underlying factors related to the answering of the survey questions. Next, we perform two-sided t-tests on overall risk score differences and risk score differences broken down by risk perception constructs (as defined by survey designers). Due to differing maximum risk scores for each construct, we standardize risk scores by dividing by the total possible risk score for each construct. We also perform two-sided t-tests on overall pollutant knowledge score differences. Finally, we explore the relationship between the actual pollutant level in an individual's home and their perceived risk. We do this by fitting linear models with perceived risk score difference as the response and pollutant level as the covariate. We also perform ranked spearman correlation tests on these same variables to explore ranked correlation.
 
 ## Data
 
@@ -84,6 +84,56 @@ differences <- test1_df$difference
 ```
 
 Testing the difference between pre and post test scores gives a p-value of .07 and 95% confidence interval of (-6.3, 0.32).
+
+### Sensitivity to Imputation Method
+
+```{r}
+library(knitr)
+
+qs_all <- paste0("Q", sprintf("%02d", 9:22))
+
+complete_case_df <- fa_df %>%
+  mutate(total_score = rowSums(across(all_of(qs_all)))) %>%
+  select(HouseID, Survey, total_score) %>%
+  pivot_wider(id_cols = HouseID, names_from = Survey, values_from = total_score) %>%
+  filter(!is.na(Pre_Intervention), !is.na(Post_Intervention)) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+available_item_df <- fa_df %>%
+  rowwise() %>%
+  mutate(total_score = mean(c_across(all_of(qs_all)), na.rm = TRUE) * length(qs_all)) %>%
+  ungroup() %>%
+  select(HouseID, Survey, total_score) %>%
+  pivot_wider(id_cols = HouseID, names_from = Survey, values_from = total_score) %>%
+  mutate(difference = Post_Intervention - Pre_Intervention)
+
+sens_test <- function(df, label) {
+  test <- t.test(df$difference)
+  data.frame(
+    Method = label,
+    N = nrow(df),
+    `Mean Difference` = round(mean(df$difference), 2),
+    `95% CI` = paste0("(", round(test$conf.int[1], 2), ", ", round(test$conf.int[2], 2), ")"),
+    `P-value` = round(test$p.value, 3),
+    check.names = FALSE
+  )
+}
+
+sensitivity_table <- bind_rows(
+  sens_test(test1_df, "kNN imputation (k = 5)"),
+  sens_test(complete_case_df, "Complete-case"),
+  sens_test(available_item_df, "Available-item (prorated)")
+)
+
+kable(
+  sensitivity_table,
+  row.names = FALSE,
+  booktabs = TRUE,
+  caption = "Sensitivity of the overall pre/post score difference to missing-data method"
+)
+```
+
+The direction, magnitude, and statistical significance of the overall score difference are consistent across kNN imputation, complete-case analysis, and the available-item approach, indicating that our conclusion is not sensitive to the choice of missing-data method. The three items affected by missingness (Q11, Q12, Q13) belong only to the Perceived Susceptibility (PM2.5) and Perceived Severity (PM2.5) constructs (see Subsetted Scores below); the statistically significant O3 results are entirely unaffected by the choice of imputation method, since none of the imputed items enter into the O3 constructs.
 
 ### Subsetted Scores
 
