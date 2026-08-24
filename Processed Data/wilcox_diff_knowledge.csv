@@ -1,0 +1,4 @@
+Pollutant,N,Pre Survey Score,Post Survey Score,Median Difference,Hodges-Lehmann Estimate,Z-stat,P-value,Adj. P-value,95% CI
+O3,15,1.38,2.13,1,0.88,2.35,0.02,0.04,"(0.25, 1.5)"
+PM2.5,15,2.45,2.93,0,0.38,1.69,0.1,0.1,"(0, 1)"
+Total,15,3.83,5.07,1.5,1.25,3.04,0.001,0.003,"(0.5, 2.12)"
