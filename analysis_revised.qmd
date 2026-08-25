@@ -205,7 +205,7 @@ construct_diff_wilcox_plt <- ggplot(risk_graphic_df, aes(y = Construct, x = Esti
 construct_diff_wilcox_plt
 
 ggsave("./Graphics/Fig2_construct_difference_wilcox_plot.tiff", construct_diff_wilcox_plt,
-       dpi = 300, units = 'in', width = 4, height = 4)
+       dpi = 600, units = 'in', width = 4, height = 4)
 ```
 
 ### Knowledge Scores
@@ -373,8 +373,8 @@ knowledge_dif_wilcox_plt <- ggplot(knowledge_graph_df, aes(y = Pollutant, x = Es
 
 knowledge_dif_wilcox_plt
 
-ggsave("./Graphics/Fig3_knowledge_difference_wilcox_plot.tiff", knowledge_dif_wilcox_plt,
-       dpi = 300, units = 'in', width = 3, height = 3)
+ggsave("./Graphics/Fig4_knowledge_difference_wilcox_plot.tiff", knowledge_dif_wilcox_plt,
+       dpi = 600, units = 'in', width = 3, height = 3)
 ```
 
 ### Difference in Threat vs. Order of Indoor/Outdoor Ratio
@@ -472,8 +472,8 @@ IO_vs_diff_threat_order_plt <- ggplot(threat_diff_by_pollutant_order, aes(y = sc
 
 IO_vs_diff_threat_order_plt
 
-ggsave(width = 7, height = 4, dpi = 300, units = "in", bg = "white",
-       filename = "./Graphics/IO_vs_diff_threat_order.tiff")
+ggsave(width = 7, height = 4, dpi = 600, units = "in", bg = "white",
+       filename = "./Graphics/Fig5_IO_vs_diff_threat_order.tiff")
 ```
 
 This chunk creates a similar table to the ones above, however in this case it also includes the House Types as a categorical variable:

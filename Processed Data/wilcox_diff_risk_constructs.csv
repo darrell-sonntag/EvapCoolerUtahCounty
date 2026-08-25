@@ -1,7 +1,7 @@
 Construct,N,Pre Survey Score,Post Survey Score,Median Difference,Hodges-Lehmann Estimate,Z-stat,P-value,Adj. P-value,95% CI
-Perceived Severity (O3),15,0.63,0.57,0,-0.05,-1.6,0.119,0.119,"(-0.12, 0)"
-Perceived Susceptibility (O3),15,0.56,0.5,0,-0.05,-2.01,0.047,0.094,"(-0.1, 0)"
-Perceived Threat (O3),15,0.6,0.54,-0.05,-0.05,-2.6,0.006,0.019,"(-0.09, -0.01)"
-Perceived Severity (PM2.5),15,0.73,0.74,0.1,0.05,1.12,0.297,0.891,"(-0.05, 0.1)"
-Perceived Susceptibility (PM2.5),15,0.62,0.58,0,-0.02,-0.72,0.501,1,"(-0.1, 0.03)"
-Perceived Threat (PM2.5),15,0.66,0.64,0,0,0.17,0.894,1,"(-0.03, 0.03)"
+Perceived Severity (O3),15,0.63,0.57,0,-0.1,-1.6,0.119,0.119,"(-0.2, 0.03)"
+Perceived Susceptibility (O3),15,0.56,0.5,0,-0.1,-2.01,0.047,0.094,"(-0.2, 0)"
+Perceived Threat (O3),15,0.6,0.54,-0.05,-0.06,-2.6,0.006,0.019,"(-0.12, -0.03)"
+Perceived Severity (PM2.5),15,0.73,0.74,0.1,0.05,1.12,0.297,0.891,"(-0.1, 0.15)"
+Perceived Susceptibility (PM2.5),15,0.62,0.58,0,-0.05,-0.72,0.501,1,"(-0.15, 0.05)"
+Perceived Threat (PM2.5),15,0.66,0.64,0,0,0.17,0.894,1,"(-0.07, 0.03)"

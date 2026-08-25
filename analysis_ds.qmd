@@ -170,7 +170,7 @@ df_diff <- df_pre_post_scores |>
 
 ```
 
-Make Figure S-1 (points and lines showing changes in threat before and after faceted by construct/pollutant)
+Make Figure 1 (points and lines showing changes in threat before and after faceted by construct/pollutant)
 
 ```{r}
 
@@ -206,7 +206,7 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type")
 
-ggsave(width = 7, height = 6, dpi = 300, units = "in", bg = "white", filename = "./Graphics/threat_overall_change_lines.jpeg")
+ggsave(width = 7, height = 6, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig1_threat_overall_change_lines.tiff")
 
 
 
@@ -255,7 +255,7 @@ ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = 
 ```
 
 Knowledge before and after graphs
-
+Figure 3
 
 ```{r}
 
@@ -287,7 +287,7 @@ ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type") 
 
-ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename = "./Graphics/knowledge_overall_change_lines.jpeg")
+ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig3_knowledge_overall_change_lines.jpeg")
 
 
 
