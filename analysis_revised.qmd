@@ -557,8 +557,7 @@ The above was run with KNN imputations, and now we need to take a look at the da
 Without houses and KNN imputation for the supplementary document:
 ```{r}
 # Overwrite the fa_df_imputed so that it doesn't do the KNN imputation
-fa_df_imputed <- fa_df %>%
-  filter(!HouseID %in% c("H06", "H33"))
+fa_df_imputed <- fa_df 
 
 results_no_impute <- lapply(names(construct_qs), function(con) {
   wilcoxon_score_analysis(construct_qs[[con]], con)
