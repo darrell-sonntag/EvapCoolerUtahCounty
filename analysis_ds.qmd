@@ -1942,7 +1942,7 @@ fig2_fig6_combined <- (p_q25_fig2 | p_q25_fig6) / (p_q29_fig2 | p_q29_fig6) +
 
 fig2_fig6_combined
 
-ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Q29_Fig2_Fig6_combined.jpeg")
+ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig7_combined.jpeg")
 
 
 
