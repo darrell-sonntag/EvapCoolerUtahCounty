@@ -177,9 +177,9 @@ risk_graphic_df <- bind_rows(lapply(results, function(x) {
 }))
 
 risk_graphic_df$Construct <- factor(risk_graphic_df$Construct,
-  levels = c("Perceived Susceptibility (O3)", "Perceived Susceptibility (PM2.5)",
-             "Perceived Severity (O3)", "Perceived Severity (PM2.5)",
-             "Perceived Threat (O3)", "Perceived Threat (PM2.5)"), ordered = TRUE)
+  levels = c("Perceived Severity (O3)", "Perceived Susceptibility (O3)", 
+  "Perceived Threat (O3)", "Perceived Severity (PM2.5)", 
+  "Perceived Susceptibility (PM2.5)", "Perceived Threat (PM2.5)"), ordered = TRUE)
 
 construct_diff_wilcox_plt <- ggplot(risk_graphic_df, aes(y = Construct, x = Estimate, fill = Construct)) +
   geom_col(width = 0.6) +

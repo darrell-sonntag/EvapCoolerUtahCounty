@@ -1240,7 +1240,7 @@ ggplot(knowledge_behavior_score_Q25_diff, aes(x = Post_response_Q25, y = score_d
     size = 3, fontface = "italic", inherit.aes = FALSE  ) +
   labs(
     x = "Change in behavior in post-intervention survey due to outdoor air pollution (Q25)",
-    y = "Difference in threat score (post - pre)",
+    y = "Difference in knowledge score (post - pre)",
     color = "Behavior",
     shape = "AC Type"
   ) +
