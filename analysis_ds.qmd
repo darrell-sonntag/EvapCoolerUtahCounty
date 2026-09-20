@@ -1277,15 +1277,7 @@ ggplot(threat_behavior_score_Q25_3, aes(x = Post_response_Q25, y = AQ_score, col
                  filter(!(Post_response_Q25 == "No Change" & ac.type == "EC")),
                outlier.shape = NA) +
   geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
-    geom_signif(
-    comparisons = list(c('Change', 'No Change')),
-    map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 'wilcox.test',
-    color = 'black',
-    vjust = 0,
-    margin_top = 0.1
-  ) +
-  facet_grid(Pollutant~ac.type,scales="free_y") +
+     facet_grid(Pollutant~ac.type,scales="free_y") +
   labs(
     x = "Change in Behavior due to Outdoor Air Pollution (Q25)",
     y = "Indoor/Outdoor Ratio",
@@ -1299,6 +1291,38 @@ ggplot(threat_behavior_score_Q25_3, aes(x = Post_response_Q25, y = AQ_score, col
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig9_IO_ratio.jpeg")
 
 ```
+
+don't stratify by pollutant type
+
+```{r}
+
+
+Q25_threat_means <- threat_behavior_score_Q25_3 |> 
+                    ungroup() |> 
+                    group_by(Pollutant,Post_response_Q25) |> 
+                    summarize(mean = mean(AQ_score,na.rm=T))
+set.seed(123)
+ggplot(threat_behavior_score_Q25_3, aes(x = Post_response_Q25, y = AQ_score, color = Post_response_Q25)) +
+  geom_boxplot(data = threat_behavior_score_Q25_3 |>
+                 filter(!(Post_response_Q25 == "No Change" & ac.type == "EC")),
+               outlier.shape = NA) +
+  geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
+     facet_grid(.~Pollutant,scales="free_y") +
+  geom_point(data=Q25_threat_means,aes(y=mean), shape = 4, size =2, color='black')+
+  labs(
+    x = "Change in Behavior due to Outdoor Air Pollution (Q25)",
+    y = "Indoor/Outdoor Ratio",
+      shape = "House Type"
+  ) +
+  scale_color_manual(values = okabe_ito[5:6], name = "House Type") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))+
+  guides(color = "none") + 
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q25_Fig10_IO_ratio.jpeg")
+
+```
+
 
 Figure 1 for Q29
 
@@ -1846,18 +1870,12 @@ threat_behavior_score_Q29_3 <- threat_behavior_score_Q29_2 |>
   mutate(Pollutant = recode(Pollutant, "mean_IO_PM_Summer" = "PM2.5", "mean_IO_O3_Summer" = "O3"))
 
 
+
+
 set.seed(123)
 ggplot(threat_behavior_score_Q29_3, aes(x = Post_response_Q29, y = AQ_score, color = Post_response_Q29)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
-    geom_signif(
-    comparisons = list(c('Change', 'No Change')),
-    map_signif_level = function(p) sprintf("p = %.3f", p),
-    test = 'wilcox.test',
-    color = 'black',
-    vjust = 0,
-    margin_top = 0.1
-  ) +
   facet_grid(Pollutant~ac.type,scales="free_y") +
   labs(
     x = "Changes made to home to improve air quality (Q29)",
@@ -1872,6 +1890,36 @@ ggplot(threat_behavior_score_Q29_3, aes(x = Post_response_Q29, y = AQ_score, col
 ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig9_IO_ratio.jpeg")
 
 ```
+
+
+```{r}
+
+Q29_threat_means <- threat_behavior_score_Q29_3 |> 
+                    ungroup() |> 
+                    group_by(Pollutant,Post_response_Q29) |> 
+                    summarize(mean = mean(AQ_score,na.rm=T))
+
+
+set.seed(123)
+ggplot(threat_behavior_score_Q29_3, aes(x = Post_response_Q29, y = AQ_score, color = Post_response_Q29)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.3, height = 0, aes(shape = ac.type)) +
+  geom_point(data = Q29_threat_means, aes(y=mean),shape = 4, color='black', size=2 )+
+  facet_grid(.~Pollutant,scales="free_y") +
+  labs(
+    x = "Changes made to home to improve air quality (Q29)",
+    y = "Indoor/Outdoor Ratio",
+      shape = "House Type"
+  ) +
+  scale_color_manual(values = okabe_ito[7:8], name = "House Type") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))+
+  guides(color = "none") + 
+  theme_bw()
+
+ggsave(width = 7, height = 5, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Q29_Fig10_IO_ratio.jpeg")
+```
+
+
 
 Combined panel: Fig 2 and Fig 6 (pre/post lines by HouseID, threat and knowledge) for Q25 and Q29 together, Q25 on top and Q29 on bottom.
 

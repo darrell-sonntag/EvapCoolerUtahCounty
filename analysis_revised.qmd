@@ -531,6 +531,8 @@ summary_table_by_actype <- bind_rows(lapply(seq_along(results_by_house_type), fu
     `Adj. P-value` = round(adj_p_at[i], 3),
     `95% CI` = paste0("(", round(x$ci[1], 2), ", ", round(x$ci[2], 2), ")"),
     Pollutant = pollutant_at[i],
+    `Average Difference` = round(x$post_score-x$pre_score,2),
+    `Percent_diff` = round((x$post_score-x$pre_score)/x$pre_score,2),
     check.names = FALSE
   )
 })) %>%
@@ -551,6 +553,10 @@ tbl_grouped_by_actype <- summary_table_by_actype %>%
 
 tbl_grouped_by_actype
 ```
+
+
+
+
 
 The above was run with KNN imputations, and now we need to take a look at the data and the results without those houses 6 and 33.
 
