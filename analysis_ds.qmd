@@ -2001,7 +2001,92 @@ ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 600, units = "in"
 
 
 
+Combined panel: Fig 2 and Fig 6 (pre/post lines by HouseID, threat and knowledge) for Q25 and Q29 together, Q25 on top and Q29 on bottom.
+Add in ac.type
 
+```{r}
+# Q25 + Q29 - Combined Fig 2 + Fig 6 panel: pre/post lines by HouseID, threat (left) and knowledge (right), Q25 (top) vs Q29 (bottom) (saves Q25_Q29_Fig2_Fig6_combined.jpeg)
+
+survey_labels <- c("Pre-Intervention" = "Pre", "Post-Intervention" = "Post")
+change_labels <- c("Change" = "Change", "No Change" = "No Change")
+
+tight_theme <- theme_bw(base_size = 6) +
+  theme(
+    legend.position = "bottom",
+    legend.key.size = unit(0.25, "cm"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 8),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.spacing = unit(0.05, "cm"),
+    strip.text = element_text(size =7, margin = margin(1, 1, 1, 1)),
+    plot.title = element_text(size = 9, face = "bold"),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 7)
+  )
+
+# use one shared Behavior color scale (Q25's palette) across all 4 panels, so patchwork can
+# collect a single shared legend instead of repeating it once per question
+shared_color_scale <- scale_color_manual(values = okabe_ito[5:6], name = "Behavior")
+
+p_q25_fig2 <- ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = threat_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q25))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(ac.type~Post_response_Q25, labeller = labeller(Post_response_Q25 = change_labels),nrow=1) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = NULL, y = "Threat score", color = "Behavior", shape = "AC Type", title = "Q25 - Behavior & Threat") +
+  shared_color_scale +
+  tight_theme
+
+p_q25_fig2
+
+ggsave(plot = p_q25_fig2, width = 7, height = 5, dpi = 600, units = "in", filename = "./Graphics/Q25_threat_ac.jpeg")
+
+p_q25_fig6 <- ggplot(threat_behavior_score_Q25_2, aes(x = Survey, y = knowledge_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q25))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q25, labeller = labeller(Post_response_Q25 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = NULL, y = "Knowledge score", color = "Behavior", shape = "AC Type", title = "Q25 - Behavior & Knowledge") +
+  shared_color_scale +
+  tight_theme
+
+p_q29_fig2 <- ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = threat_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q29))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(ac.type~Post_response_Q29, labeller = labeller(Post_response_Q29 = change_labels),nrow=1) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = "Survey", y = "Threat score", color = "Behavior", shape = "AC Type", title = "Q29 - Home Intervention & Threat") +
+  shared_color_scale +
+  tight_theme
+
+p_q29_fig2
+
+ggsave(plot = p_q29_fig2, width = 7, height = 5, dpi = 600, units = "in", filename = "./Graphics/Q29_threat_ac.jpeg")
+
+p_q29_fig6 <- ggplot(threat_behavior_score_Q29_2, aes(x = Survey, y = knowledge_score)) +
+  geom_point(width=0.3,height=0, aes(shape = ac.type, color = Q29))+
+  geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +
+  facet_wrap(~Post_response_Q29, labeller = labeller(Post_response_Q29 = change_labels)) +
+  scale_x_discrete(labels = survey_labels) +
+  labs(x = "Survey", y = "Knowledge score", color = "Behavior", shape = "AC Type", title = "Q29 - Home Intervention & Knowledge") +
+  shared_color_scale +
+  tight_theme
+
+fig2_fig6_combined <- (p_q25_fig2 | p_q25_fig6) / (p_q29_fig2 | p_q29_fig6) +ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig7_combined.jpeg")
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom", legend.box = "horizontal",
+        legend.margin = margin(0, 0, 0, 0), legend.box.spacing = unit(0.05, "cm"))
+
+fig2_fig6_combined
+
+
+
+
+
+
+
+
+```
 
 
 ## Risk perception vs. PM2.5 and O3 air quality scores
