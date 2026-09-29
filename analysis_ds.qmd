@@ -175,11 +175,13 @@ Make Figure 1 (points and lines showing changes in threat before and after facet
 ```{r}
 
 df_pre_post_threat <- df_pre_post_scores |> 
-  filter(type %in% c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat"))
+  filter(type %in% c("O3 Susceptibility", "O3 Severity", "O3 Threat","PM2.5 Susceptibility", "PM2.5 Severity", "PM2.5 Threat")) |> 
+  mutate(SurveyName = ifelse(Survey == 'Pre-Intervention', 'Pre','Post')) |> 
+  mutate(SurveyName = factor(SurveyName, levels = c('Pre','Post'), ordered = T))
 
 names(df_pre_post_threat)
 pre_post_threat_means <- df_pre_post_threat |> 
-                            group_by(type,Survey) |> 
+                            group_by(type,SurveyName) |> 
                             summarize(mean = mean(score,na.rm=T))
 
    
@@ -190,7 +192,7 @@ okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
 
 
 ## geom_point and geom_line
-ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
+ggplot(df_pre_post_threat, aes(x = SurveyName, y = score)) +
     geom_point(width=0.3,height=0, aes(shape = ac.type, color = ac.type))+
    geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
    geom_point(data=pre_post_threat_means, shape = 4, color='black', size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
@@ -206,7 +208,7 @@ ggplot(df_pre_post_threat, aes(x = Survey, y = score)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type")
 
-ggsave(width = 7, height = 6, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig1_threat_overall_change_lines.tiff")
+ggsave(width = 6, height = 5, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig1_threat_overall_change_lines.tiff")
 
 
 
@@ -261,15 +263,17 @@ Figure 3
 
 df_pre_post_knowledge <- df_pre_post_scores |> 
   filter(type %in% c("Total Knowledge", "O3 Knowledge", "PM2.5 Knowledge")) |> 
-  mutate(type = factor(type, levels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"), labels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Pollutant Knowledge"),ordered = TRUE)) 
+  mutate(type = factor(type, levels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"), labels = c("O3 Knowledge", "PM2.5 Knowledge", "Total Knowledge"),ordered = TRUE)) |> 
+  mutate(SurveyName = ifelse(Survey == 'Pre-Intervention', 'Pre','Post')) |> 
+  mutate(SurveyName = factor(SurveyName, levels = c('Pre','Post'), ordered = T))
 
 pre_post_knowledge_means <- df_pre_post_knowledge |> 
-                            group_by(type,Survey) |> 
+                            group_by(type,SurveyName) |> 
                             summarize(mean = mean(score,na.rm=T))
 
 set.seed(23)   
 ## geom_point and geom_line
-ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
+ggplot(df_pre_post_knowledge, aes(x = SurveyName, y = score)) +
   geom_jitter(width=0.01,height=0, aes(shape = ac.type, color = ac.type), alpha = 0.5)+
   geom_line(aes(group = HouseID), color = "grey80", alpha = 0.5) +  # add lines connecting points for the same HouseID
      geom_point(data=pre_post_knowledge_means, shape = 4, color='black',size=3, stroke=1.5, alpha=0.5, aes(y=mean))+ ## add mean x's
@@ -287,7 +291,7 @@ ggplot(df_pre_post_knowledge, aes(x = Survey, y = score)) +
  scale_color_manual(values = okabe_ito, name = "House Type") +
  scale_shape_manual(values = c(16, 17), name = "House Type") 
 
-ggsave(width = 7, height = 3.1, dpi = 300, units = "in", bg = "white", filename = "./Graphics/Fig3_knowledge_overall_change_lines.jpeg")
+ggsave(width = 5, height = 3, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig3_knowledge_overall_change_lines.tiff")
 
 
 
@@ -1990,7 +1994,7 @@ fig2_fig6_combined <- (p_q25_fig2 | p_q25_fig6) / (p_q29_fig2 | p_q29_fig6) +
 
 fig2_fig6_combined
 
-ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig7_combined.jpeg")
+ggsave(plot = fig2_fig6_combined, width = 6, height = 5, dpi = 600, units = "in", bg = "white", filename = "./Graphics/Fig7_combined.tiff")
 
 
 
